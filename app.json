@@ -1,0 +1,83 @@
+{
+  "expo": {
+    "name": "Heatmap",
+    "slug": "heatmap",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "heatmap",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "dev.zirkelc.heatmap",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "location",
+          "location"
+        ],
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "We need your location to track and display your movement as a heatmap.",
+        "NSLocationWhenInUseUsageDescription": "We need your location to show your position on the map.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "config": {
+        "googleMapsApiKey": "AIzaSyAQqAF6_3TAMMsKgMxsaI-Om2u3x-JarFQ"
+      }
+    },
+    "android": {
+      "package": "dev.zirkelc.heatmap",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY_ANDROID"
+        }
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Heatmap to use your location to track and display your movement.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      [
+        "expo-sqlite"
+      ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "597ee4bf-187c-4d9c-a3ab-284d2fc7a34d"
+      }
+    }
+  }
+}

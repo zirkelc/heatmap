@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
-import { useDatabaseReady } from './DatabaseContext';
+import { useDatabase } from './DatabaseContext';
 import { useSettings } from './SettingsContext';
 import {
   startTracking as startTrackingService,
@@ -12,13 +12,9 @@ import {
   createSeries,
   setActiveSeries,
   deactivateAllSeries,
-  getActiveSeries,
-  getAllSeries,
 } from '../db/queries/series';
+import { useLiveSeries, useLiveActiveSeries } from '../hooks/useLiveSeries';
 import type { Series } from '../db/schema';
-import type { getDatabase } from '../db/client';
-
-type DrizzleDB = ReturnType<typeof getDatabase>;
 
 interface TrackingContextValue {
   isTracking: boolean;
@@ -27,60 +23,29 @@ interface TrackingContextValue {
   startNewSeries: () => Promise<Series | null>;
   continueSeries: (seriesId: number) => Promise<boolean>;
   stopCurrentTracking: () => Promise<void>;
-  refreshSeries: () => void;
 }
 
 const TrackingContext = createContext<TrackingContextValue | null>(null);
 
 export function TrackingProvider({ children }: { children: ReactNode }) {
-  const isDbReady = useDatabaseReady();
+  const db = useDatabase();
   const { settings } = useSettings();
-  const [db, setDb] = useState<DrizzleDB | null>(null);
   const [isTracking, setIsTracking] = useState(false);
-  const [activeSeries, setActiveSeriesState] = useState<Series | null>(null);
-  const [allSeries, setAllSeries] = useState<Array<Series>>([]);
 
-  /** Get database when ready */
+  /** Use live queries for reactive data */
+  const { series: allSeries } = useLiveSeries();
+  const { activeSeries } = useLiveActiveSeries();
+
+  /** Check tracking status on mount */
   useEffect(() => {
-    if (isDbReady) {
-      try {
-        const { getDatabase } = require('../db/client');
-        setDb(getDatabase());
-      } catch (e) {
-        console.error('Failed to get database:', e);
-      }
-    }
-  }, [isDbReady]);
-
-  /** Check tracking status and load series on mount */
-  useEffect(() => {
-    if (!db) return;
-
-    const init = async () => {
+    const checkTracking = async () => {
       const tracking = await isTrackingActive();
       setIsTracking(tracking);
-
-      const active = getActiveSeries(db);
-      setActiveSeriesState(active ?? null);
-
-      const series = getAllSeries(db);
-      setAllSeries(series);
     };
-
-    init();
-  }, [db]);
-
-  const refreshSeries = useCallback(() => {
-    if (!db) return;
-    const series = getAllSeries(db);
-    setAllSeries(series);
-    const active = getActiveSeries(db);
-    setActiveSeriesState(active ?? null);
-  }, [db]);
+    checkTracking();
+  }, []);
 
   const startNewSeries = useCallback(async (): Promise<Series | null> => {
-    if (!db) return null;
-
     try {
       const location = await getCurrentLocation();
       let name = `Tracking - ${new Date().toLocaleDateString()}`;
@@ -97,8 +62,8 @@ export function TrackingProvider({ children }: { children: ReactNode }) {
         country = generated.country;
       }
 
-      const series = createSeries(db, name, city, country);
-      setActiveSeries(db, series.seriesId);
+      const newSeries = createSeries(db, name, city, country);
+      setActiveSeries(db, newSeries.seriesId);
 
       const started = await startTrackingService({
         timeInterval: settings.timeInterval,
@@ -110,19 +75,14 @@ export function TrackingProvider({ children }: { children: ReactNode }) {
       }
 
       setIsTracking(true);
-      setActiveSeriesState(series);
-      refreshSeries();
-
-      return series;
+      return newSeries;
     } catch (error) {
       console.error('[TrackingContext] Failed to start new series:', error);
       return null;
     }
-  }, [db, refreshSeries, settings]);
+  }, [db, settings]);
 
   const continueSeries = useCallback(async (seriesId: number): Promise<boolean> => {
-    if (!db) return false;
-
     try {
       setActiveSeries(db, seriesId);
 
@@ -136,30 +96,22 @@ export function TrackingProvider({ children }: { children: ReactNode }) {
       }
 
       setIsTracking(true);
-      const active = getActiveSeries(db);
-      setActiveSeriesState(active ?? null);
-      refreshSeries();
-
       return true;
     } catch (error) {
       console.error('[TrackingContext] Failed to continue series:', error);
       return false;
     }
-  }, [db, refreshSeries, settings]);
+  }, [db, settings]);
 
   const stopCurrentTracking = useCallback(async (): Promise<void> => {
-    if (!db) return;
-
     try {
       await stopTrackingService();
       deactivateAllSeries(db);
       setIsTracking(false);
-      setActiveSeriesState(null);
-      refreshSeries();
     } catch (error) {
       console.error('[TrackingContext] Failed to stop tracking:', error);
     }
-  }, [db, refreshSeries]);
+  }, [db]);
 
   const value: TrackingContextValue = {
     isTracking,
@@ -168,7 +120,6 @@ export function TrackingProvider({ children }: { children: ReactNode }) {
     startNewSeries,
     continueSeries,
     stopCurrentTracking,
-    refreshSeries,
   };
 
   return (

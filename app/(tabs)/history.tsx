@@ -11,27 +11,23 @@ import {
   Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useFocusEffect } from 'expo-router';
-import { useDatabaseReady } from '../../src/contexts/DatabaseContext';
+import { useRouter } from 'expo-router';
+import { useDatabase, useDatabaseReady } from '../../src/contexts/DatabaseContext';
 import { useTracking } from '../../src/contexts/TrackingContext';
-import { useSeries } from '../../src/hooks/useSeries';
+import { useLiveSeries } from '../../src/hooks/useLiveSeries';
+import { updateSeriesName, deleteSeries } from '../../src/db/queries/series';
 import type { Series } from '../../src/db/schema';
 
 export default function HistoryScreen() {
   const router = useRouter();
   const isDbReady = useDatabaseReady();
+  const db = useDatabase();
   const { continueSeries, isTracking } = useTracking();
-  const { series, refresh, rename, remove } = useSeries();
+  const { series } = useLiveSeries();
 
   const [renameModalVisible, setRenameModalVisible] = useState(false);
   const [selectedSeries, setSelectedSeries] = useState<Series | null>(null);
   const [newName, setNewName] = useState('');
-
-  useFocusEffect(
-    useCallback(() => {
-      refresh();
-    }, [refresh])
-  );
 
   const handleContinue = useCallback(async (item: Series) => {
     if (isTracking) {
@@ -55,12 +51,12 @@ export default function HistoryScreen() {
 
   const handleSaveRename = useCallback(() => {
     if (selectedSeries && newName.trim()) {
-      rename(selectedSeries.seriesId, newName.trim());
+      updateSeriesName(db, selectedSeries.seriesId, newName.trim());
       setRenameModalVisible(false);
       setSelectedSeries(null);
       setNewName('');
     }
-  }, [selectedSeries, newName, rename]);
+  }, [db, selectedSeries, newName]);
 
   const handleDelete = useCallback((item: Series) => {
     Alert.alert(
@@ -71,11 +67,11 @@ export default function HistoryScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => remove(item.seriesId),
+          onPress: () => deleteSeries(db, item.seriesId),
         },
       ]
     );
-  }, [remove]);
+  }, [db]);
 
   const handlePress = useCallback((item: Series) => {
     router.push(`/series/${item.seriesId}`);

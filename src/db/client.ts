@@ -12,7 +12,7 @@ let drizzleInstance: ReturnType<typeof drizzle<typeof schema>> | null = null;
  */
 export function getRawDatabase(): SQLite.SQLiteDatabase {
   if (!rawDatabase) {
-    rawDatabase = SQLite.openDatabaseSync(DB_NAME);
+    rawDatabase = SQLite.openDatabaseSync(DB_NAME, { enableChangeListener: true });
     rawDatabase.execSync('PRAGMA foreign_keys = ON;');
   }
   return rawDatabase;
@@ -33,7 +33,7 @@ export function getDatabase(): ReturnType<typeof drizzle<typeof schema>> {
  * Get a Drizzle instance for background tasks (fresh connection).
  */
 export function getDatabaseSync(): ReturnType<typeof drizzle<typeof schema>> {
-  const raw = SQLite.openDatabaseSync(DB_NAME);
+  const raw = SQLite.openDatabaseSync(DB_NAME, { enableChangeListener: true });
   raw.execSync('PRAGMA foreign_keys = ON;');
   return drizzle(raw, { schema });
 }

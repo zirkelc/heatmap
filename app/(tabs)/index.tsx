@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity, Alert } from 'react-native';
 import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
-import { useFocusEffect } from 'expo-router';
 import { useDatabaseReady } from '../../src/contexts/DatabaseContext';
 import { useTracking } from '../../src/contexts/TrackingContext';
-import { useHeatmapPoints, calculateRegion } from '../../src/hooks/useHeatmapPoints';
+import { useLiveHeatmap } from '../../src/hooks/useLiveHeatmap';
+import { calculateRegion } from '../../src/hooks/useHeatmapPoints';
 import { HeatmapOverlay } from '../../src/components/map/HeatmapOverlay';
 import { TrackingButton } from '../../src/components/tracking/TrackingButton';
 import { SeriesPrompt } from '../../src/components/tracking/SeriesPrompt';
@@ -27,7 +27,6 @@ export default function MapScreen() {
     startNewSeries,
     continueSeries,
     stopCurrentTracking,
-    refreshSeries,
   } = useTracking();
 
   const [selectedSeriesIds, setSelectedSeriesIds] = useState<Array<number>>([]);
@@ -41,34 +40,10 @@ export default function MapScreen() {
     }
   }, [activeSeries]);
 
-  /** Refresh data when screen is focused */
-  useFocusEffect(
-    useCallback(() => {
-      refreshSeries();
-    }, [refreshSeries])
-  );
-
-  const { points, refresh: refreshPoints } = useHeatmapPoints(
+  /** Use live heatmap - auto-updates when database changes */
+  const { points } = useLiveHeatmap(
     selectedSeriesIds.length > 0 ? selectedSeriesIds : 'all'
   );
-
-  /** Refresh points when screen is focused */
-  useFocusEffect(
-    useCallback(() => {
-      refreshPoints();
-    }, [refreshPoints])
-  );
-
-  /** Refresh points periodically while tracking */
-  useEffect(() => {
-    if (!isTracking) return;
-
-    const interval = setInterval(() => {
-      refreshPoints();
-    }, 5_000);
-
-    return () => clearInterval(interval);
-  }, [isTracking, refreshPoints]);
 
   /** Center map on heatmap points */
   useEffect(() => {
@@ -93,7 +68,6 @@ export default function MapScreen() {
             onPress: async () => {
               setIsLoading(true);
               await stopCurrentTracking();
-              refreshPoints();
               setIsLoading(false);
             },
           },
@@ -102,7 +76,7 @@ export default function MapScreen() {
     } else {
       setShowPrompt(true);
     }
-  }, [isTracking, stopCurrentTracking, refreshPoints]);
+  }, [isTracking, stopCurrentTracking]);
 
   const handleStartNew = useCallback(async () => {
     setShowPrompt(false);

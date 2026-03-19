@@ -1,9 +1,13 @@
-import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import type { SQLiteDatabase } from 'expo-sqlite';
-import { getDatabase } from '../db/client';
+import React, { createContext, useContext, type ReactNode } from 'react';
+import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
+import { Text, View, ActivityIndicator, StyleSheet } from 'react-native';
+import { getDatabase, getRawDatabase } from '../db/client';
+import migrations from '../../drizzle/migrations';
+
+type DrizzleDB = ReturnType<typeof getDatabase>;
 
 interface DatabaseContextValue {
-  db: SQLiteDatabase | null;
+  db: DrizzleDB | null;
   isReady: boolean;
 }
 
@@ -13,27 +17,34 @@ const DatabaseContext = createContext<DatabaseContextValue>({
 });
 
 export function DatabaseProvider({ children }: { children: ReactNode }) {
-  const [db, setDb] = useState<SQLiteDatabase | null>(null);
-  const [isReady, setIsReady] = useState(false);
+  const db = getDatabase();
+  const { success, error } = useMigrations(db, migrations);
 
-  useEffect(() => {
-    const database = getDatabase();
-    setDb(database);
-    setIsReady(true);
-  }, []);
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>Migration error: {error.message}</Text>
+      </View>
+    );
+  }
 
-  if (!isReady) {
-    return null;
+  if (!success) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#4285F4" />
+        <Text style={styles.loadingText}>Loading database...</Text>
+      </View>
+    );
   }
 
   return (
-    <DatabaseContext.Provider value={{ db, isReady }}>
+    <DatabaseContext.Provider value={{ db, isReady: true }}>
       {children}
     </DatabaseContext.Provider>
   );
 }
 
-export function useDatabase(): SQLiteDatabase {
+export function useDatabase(): DrizzleDB {
   const { db, isReady } = useContext(DatabaseContext);
   if (!isReady || !db) {
     throw new Error('Database not ready. Make sure DatabaseProvider is mounted.');
@@ -45,3 +56,23 @@ export function useDatabaseReady(): boolean {
   const { isReady } = useContext(DatabaseContext);
   return isReady;
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666666',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#FF3B30',
+    textAlign: 'center',
+    padding: 20,
+  },
+});

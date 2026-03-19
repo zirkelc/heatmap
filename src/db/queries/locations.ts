@@ -1,41 +1,47 @@
-import type { SQLiteDatabase } from 'expo-sqlite';
-import type { LocationPoint } from '../schema';
+import { eq, inArray, asc, count, min, max } from 'drizzle-orm';
+import { locations, type Location } from '../schema';
+import type { getDatabase } from '../client';
+
+type DB = ReturnType<typeof getDatabase>;
 
 /**
  * Get all location points for a series.
  */
-export function getLocationsBySeries(db: SQLiteDatabase, seriesId: number): Array<LocationPoint> {
-  return db.getAllSync<LocationPoint>(
-    'SELECT * FROM location_points WHERE series_id = ? ORDER BY timestamp ASC',
-    [seriesId]
-  );
+export function getLocationsBySeries(db: DB, seriesId: number): Array<Location> {
+  return db
+    .select()
+    .from(locations)
+    .where(eq(locations.seriesId, seriesId))
+    .orderBy(asc(locations.timestamp))
+    .all();
 }
 
 /**
  * Get all location points for multiple series (for heatmap display).
  */
-export function getLocationsBySeriesIds(db: SQLiteDatabase, seriesIds: Array<number>): Array<LocationPoint> {
+export function getLocationsBySeriesIds(db: DB, seriesIds: Array<number>): Array<Location> {
   if (seriesIds.length === 0) return [];
 
-  const placeholders = seriesIds.map(() => '?').join(',');
-  return db.getAllSync<LocationPoint>(
-    `SELECT * FROM location_points WHERE series_id IN (${placeholders}) ORDER BY timestamp ASC`,
-    seriesIds
-  );
+  return db
+    .select()
+    .from(locations)
+    .where(inArray(locations.seriesId, seriesIds))
+    .orderBy(asc(locations.timestamp))
+    .all();
 }
 
 /**
  * Get all location points (for displaying all data on heatmap).
  */
-export function getAllLocations(db: SQLiteDatabase): Array<LocationPoint> {
-  return db.getAllSync<LocationPoint>('SELECT * FROM location_points ORDER BY timestamp ASC');
+export function getAllLocations(db: DB): Array<Location> {
+  return db.select().from(locations).orderBy(asc(locations.timestamp)).all();
 }
 
 /**
  * Insert a new location point.
  */
 export function insertLocation(
-  db: SQLiteDatabase,
+  db: DB,
   seriesId: number,
   latitude: number,
   longitude: number,
@@ -45,19 +51,26 @@ export function insertLocation(
   weight?: number
 ): void {
   const ts = timestamp ?? new Date().toISOString();
-  db.runSync(
-    'INSERT INTO location_points (series_id, latitude, longitude, altitude, accuracy, timestamp, weight) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [seriesId, latitude, longitude, altitude ?? null, accuracy ?? null, ts, weight ?? 1.0]
-  );
+  db.insert(locations)
+    .values({
+      seriesId,
+      latitude,
+      longitude,
+      altitude: altitude ?? null,
+      accuracy: accuracy ?? null,
+      timestamp: ts,
+      weight: weight ?? 1.0,
+    })
+    .run();
 }
 
 /**
- * Insert multiple location points in a batch.
+ * Insert multiple location points in a batch using multi-value insert.
  */
 export function insertLocationsBatch(
-  db: SQLiteDatabase,
+  db: DB,
   seriesId: number,
-  locations: Array<{
+  locs: Array<{
     latitude: number;
     longitude: number;
     altitude?: number | null;
@@ -66,46 +79,57 @@ export function insertLocationsBatch(
     weight?: number;
   }>
 ): void {
-  for (const loc of locations) {
-    insertLocation(
-      db,
-      seriesId,
-      loc.latitude,
-      loc.longitude,
-      loc.altitude,
-      loc.accuracy,
-      loc.timestamp,
-      loc.weight
-    );
-  }
+  if (locs.length === 0) return;
+
+  db.insert(locations)
+    .values(
+      locs.map((loc) => ({
+        seriesId,
+        latitude: loc.latitude,
+        longitude: loc.longitude,
+        altitude: loc.altitude ?? null,
+        accuracy: loc.accuracy ?? null,
+        timestamp: loc.timestamp ?? new Date().toISOString(),
+        weight: loc.weight ?? 1.0,
+      }))
+    )
+    .run();
 }
 
 /**
  * Delete all location points for a series.
  */
-export function deleteLocationsBySeries(db: SQLiteDatabase, seriesId: number): void {
-  db.runSync('DELETE FROM location_points WHERE series_id = ?', [seriesId]);
+export function deleteLocationsBySeries(db: DB, seriesId: number): void {
+  db.delete(locations).where(eq(locations.seriesId, seriesId)).run();
 }
 
 /**
  * Get the first location point of a series (for reverse geocoding).
  */
-export function getFirstLocation(db: SQLiteDatabase, seriesId: number): LocationPoint | null {
-  return db.getFirstSync<LocationPoint>(
-    'SELECT * FROM location_points WHERE series_id = ? ORDER BY timestamp ASC LIMIT 1',
-    [seriesId]
-  );
+export function getFirstLocation(db: DB, seriesId: number): Location | undefined {
+  return db
+    .select()
+    .from(locations)
+    .where(eq(locations.seriesId, seriesId))
+    .orderBy(asc(locations.timestamp))
+    .limit(1)
+    .get();
 }
 
 /**
  * Get location stats for a series.
  */
 export function getLocationStats(
-  db: SQLiteDatabase,
+  db: DB,
   seriesId: number
-): { count: number; minTimestamp: string | null; maxTimestamp: string | null } | null {
-  return db.getFirstSync<{ count: number; minTimestamp: string | null; maxTimestamp: string | null }>(
-    'SELECT COUNT(*) as count, MIN(timestamp) as minTimestamp, MAX(timestamp) as maxTimestamp FROM location_points WHERE series_id = ?',
-    [seriesId]
-  );
+): { count: number; minTimestamp: string | null; maxTimestamp: string | null } | undefined {
+  return db
+    .select({
+      count: count(),
+      minTimestamp: min(locations.timestamp),
+      maxTimestamp: max(locations.timestamp),
+    })
+    .from(locations)
+    .where(eq(locations.seriesId, seriesId))
+    .get();
 }

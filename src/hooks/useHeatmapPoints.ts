@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useDatabase } from '../contexts/DatabaseContext';
 import { getLocationsBySeriesIds, getAllLocations } from '../db/queries/locations';
-import type { LocationPoint } from '../db/schema';
+import type { Location } from '../db/schema';
 
 export interface HeatmapPoint {
   latitude: number;
@@ -25,7 +25,7 @@ export function useHeatmapPoints(selectedSeriesIds: Array<number> | 'all') {
   const refresh = useCallback(() => {
     setLoading(true);
 
-    let locations: Array<LocationPoint>;
+    let locations: Array<Location>;
 
     if (idsRef.current === 'all') {
       locations = getAllLocations(db);
@@ -36,7 +36,7 @@ export function useHeatmapPoints(selectedSeriesIds: Array<number> | 'all') {
     const heatmapPoints: Array<HeatmapPoint> = locations.map((loc) => ({
       latitude: loc.latitude,
       longitude: loc.longitude,
-      weight: loc.weight,
+      weight: loc.weight ?? 1.0,
     }));
 
     setPoints(heatmapPoints);

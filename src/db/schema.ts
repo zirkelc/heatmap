@@ -1,55 +1,60 @@
+import { sqliteTable, text, integer, real, index } from 'drizzle-orm/sqlite-core';
+
 /**
- * Database schema for the heatmap location tracking app.
+ * Series table - represents a collection of tracked location points.
  */
+export const series = sqliteTable('series', {
+  seriesId: integer().primaryKey({ autoIncrement: true }),
+  name: text().notNull(),
+  city: text(),
+  country: text(),
+  createdAt: text()
+    .$defaultFn(() => new Date().toISOString())
+    .notNull(),
+  updatedAt: text()
+    .$defaultFn(() => new Date().toISOString())
+    .$onUpdateFn(() => new Date().toISOString())
+    .notNull(),
+  isActive: integer({ mode: 'boolean' }).default(false),
+  pointCount: integer().default(0),
+});
 
-export const MIGRATIONS = [
-  `CREATE TABLE IF NOT EXISTS series (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    city TEXT,
-    country TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    is_active INTEGER DEFAULT 0,
-    point_count INTEGER DEFAULT 0
-  );`,
-  `CREATE TABLE IF NOT EXISTS location_points (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    series_id INTEGER NOT NULL,
-    latitude REAL NOT NULL,
-    longitude REAL NOT NULL,
-    altitude REAL,
-    accuracy REAL,
-    timestamp TEXT NOT NULL,
-    weight REAL DEFAULT 1.0,
-    FOREIGN KEY (series_id) REFERENCES series(id) ON DELETE CASCADE
-  );`,
-  `CREATE INDEX IF NOT EXISTS idx_location_points_series_id ON location_points(series_id);`,
-  `CREATE INDEX IF NOT EXISTS idx_series_is_active ON series(is_active);`,
-  `CREATE TABLE IF NOT EXISTS settings (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL
-  );`,
-];
+/**
+ * Locations table - stores individual GPS coordinates (renamed from location_points).
+ */
+export const locations = sqliteTable(
+  'locations',
+  {
+    locationId: integer().primaryKey({ autoIncrement: true }),
+    seriesId: integer()
+      .notNull()
+      .references(() => series.seriesId, { onDelete: 'cascade' }),
+    latitude: real().notNull(),
+    longitude: real().notNull(),
+    altitude: real(),
+    accuracy: real(),
+    timestamp: text().notNull(),
+    weight: real().default(1.0),
+  },
+  (table) => [index('idx_locations_seriesId').on(table.seriesId)]
+);
 
-export interface Series {
-  id: number;
-  name: string;
-  city: string | null;
-  country: string | null;
-  created_at: string;
-  updated_at: string;
-  is_active: number;
-  point_count: number;
-}
+/**
+ * Settings table - key-value store for app configuration.
+ */
+export const settings = sqliteTable('settings', {
+  key: text().primaryKey(),
+  value: text().notNull(),
+});
 
-export interface LocationPoint {
-  id: number;
-  series_id: number;
-  latitude: number;
-  longitude: number;
-  altitude: number | null;
-  accuracy: number | null;
-  timestamp: string;
-  weight: number;
-}
+/** Inferred types for Series */
+export type Series = typeof series.$inferSelect;
+export type NewSeries = typeof series.$inferInsert;
+
+/** Inferred types for Location */
+export type Location = typeof locations.$inferSelect;
+export type NewLocation = typeof locations.$inferInsert;
+
+/** Inferred types for Settings */
+export type Setting = typeof settings.$inferSelect;
+export type NewSetting = typeof settings.$inferInsert;

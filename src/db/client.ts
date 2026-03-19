@@ -1,35 +1,39 @@
 import * as SQLite from 'expo-sqlite';
-import { MIGRATIONS } from './schema';
+import { drizzle } from 'drizzle-orm/expo-sqlite';
+import * as schema from './schema';
 
 const DB_NAME = 'heatmap.db';
 
-let database: SQLite.SQLiteDatabase | null = null;
+let rawDatabase: SQLite.SQLiteDatabase | null = null;
+let drizzleInstance: ReturnType<typeof drizzle<typeof schema>> | null = null;
 
 /**
- * Get or create the database instance.
+ * Get the raw expo-sqlite database instance (for migrations).
  */
-export function getDatabase(): SQLite.SQLiteDatabase {
-  if (!database) {
-    database = SQLite.openDatabaseSync(DB_NAME);
-    initializeDatabase(database);
+export function getRawDatabase(): SQLite.SQLiteDatabase {
+  if (!rawDatabase) {
+    rawDatabase = SQLite.openDatabaseSync(DB_NAME);
+    rawDatabase.execSync('PRAGMA foreign_keys = ON;');
   }
-  return database;
+  return rawDatabase;
 }
 
 /**
- * Initialize the database with schema migrations.
+ * Get the Drizzle ORM instance.
  */
-function initializeDatabase(db: SQLite.SQLiteDatabase): void {
-  db.execSync('PRAGMA foreign_keys = ON;');
-
-  for (const migration of MIGRATIONS) {
-    db.execSync(migration);
+export function getDatabase(): ReturnType<typeof drizzle<typeof schema>> {
+  if (!drizzleInstance) {
+    const raw = getRawDatabase();
+    drizzleInstance = drizzle(raw, { schema });
   }
+  return drizzleInstance;
 }
 
 /**
- * Get the database for background tasks (synchronous access).
+ * Get a Drizzle instance for background tasks (fresh connection).
  */
-export function getDatabaseSync(): SQLite.SQLiteDatabase {
-  return SQLite.openDatabaseSync(DB_NAME);
+export function getDatabaseSync(): ReturnType<typeof drizzle<typeof schema>> {
+  const raw = SQLite.openDatabaseSync(DB_NAME);
+  raw.execSync('PRAGMA foreign_keys = ON;');
+  return drizzle(raw, { schema });
 }

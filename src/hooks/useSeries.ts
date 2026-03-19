@@ -68,10 +68,10 @@ export function useSeriesById(id: number) {
 
   const refresh = useCallback(() => {
     const data = getSeriesById(db, id);
-    setSeries(data);
+    setSeries(data ?? null);
     if (data) {
       const locationStats = getLocationStats(db, id);
-      setStats(locationStats);
+      setStats(locationStats ?? null);
     }
     setLoading(false);
   }, [db, id]);

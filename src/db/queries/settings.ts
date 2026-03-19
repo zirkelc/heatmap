@@ -1,4 +1,8 @@
-import type { SQLiteDatabase } from 'expo-sqlite';
+import { eq, inArray } from 'drizzle-orm';
+import { settings } from '../schema';
+import type { getDatabase } from '../client';
+
+type DB = ReturnType<typeof getDatabase>;
 
 export interface TrackingSettings {
   timeInterval: number;
@@ -13,38 +17,46 @@ export const DEFAULT_SETTINGS: TrackingSettings = {
 /**
  * Get a setting value by key.
  */
-export function getSetting(db: SQLiteDatabase, key: string): string | null {
-  const result = db.getFirstSync<{ value: string }>('SELECT value FROM settings WHERE key = ?', [key]);
+export function getSetting(db: DB, key: string): string | null {
+  const result = db.select().from(settings).where(eq(settings.key, key)).get();
   return result?.value ?? null;
 }
 
 /**
- * Set a setting value.
+ * Set a setting value (upsert).
  */
-export function setSetting(db: SQLiteDatabase, key: string, value: string): void {
-  db.runSync(
-    'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
-    [key, value]
-  );
+export function setSetting(db: DB, key: string, value: string): void {
+  db.insert(settings)
+    .values({ key, value })
+    .onConflictDoUpdate({
+      target: settings.key,
+      set: { value },
+    })
+    .run();
 }
 
 /**
- * Get all tracking settings.
+ * Get all tracking settings in a single query.
  */
-export function getTrackingSettings(db: SQLiteDatabase): TrackingSettings {
-  const timeInterval = getSetting(db, 'timeInterval');
-  const distanceInterval = getSetting(db, 'distanceInterval');
+export function getTrackingSettings(db: DB): TrackingSettings {
+  const rows = db
+    .select()
+    .from(settings)
+    .where(inArray(settings.key, ['timeInterval', 'distanceInterval']))
+    .all();
+
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
 
   return {
-    timeInterval: timeInterval ? Number(timeInterval) : DEFAULT_SETTINGS.timeInterval,
-    distanceInterval: distanceInterval ? Number(distanceInterval) : DEFAULT_SETTINGS.distanceInterval,
+    timeInterval: map.timeInterval ? Number(map.timeInterval) : DEFAULT_SETTINGS.timeInterval,
+    distanceInterval: map.distanceInterval ? Number(map.distanceInterval) : DEFAULT_SETTINGS.distanceInterval,
   };
 }
 
 /**
  * Save tracking settings.
  */
-export function saveTrackingSettings(db: SQLiteDatabase, settings: TrackingSettings): void {
-  setSetting(db, 'timeInterval', String(settings.timeInterval));
-  setSetting(db, 'distanceInterval', String(settings.distanceInterval));
+export function saveTrackingSettings(db: DB, trackingSettings: TrackingSettings): void {
+  setSetting(db, 'timeInterval', String(trackingSettings.timeInterval));
+  setSetting(db, 'distanceInterval', String(trackingSettings.distanceInterval));
 }

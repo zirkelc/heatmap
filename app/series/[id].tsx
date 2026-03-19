@@ -45,7 +45,7 @@ export default function SeriesDetailScreen() {
   const handleDelete = useCallback(() => {
     Alert.alert(
       'Delete Series',
-      `Are you sure you want to delete "${series?.name}"? This will permanently remove all ${series?.point_count} location points.`,
+      `Are you sure you want to delete "${series?.name}"? This will permanently remove all ${series?.pointCount} location points.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -162,7 +162,7 @@ export default function SeriesDetailScreen() {
         {/* Stats */}
         <View style={styles.statsContainer}>
           <View style={styles.stat}>
-            <Text style={styles.statValue}>{series.point_count}</Text>
+            <Text style={styles.statValue}>{series.pointCount}</Text>
             <Text style={styles.statLabel}>Points</Text>
           </View>
           {stats?.minTimestamp && (
@@ -185,12 +185,12 @@ export default function SeriesDetailScreen() {
 
         <View style={styles.section}>
           <Text style={styles.label}>Created</Text>
-          <Text style={styles.value}>{formatDate(series.created_at)}</Text>
+          <Text style={styles.value}>{formatDate(series.createdAt)}</Text>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.label}>Last Updated</Text>
-          <Text style={styles.value}>{formatDate(series.updated_at)}</Text>
+          <Text style={styles.value}>{formatDate(series.updatedAt)}</Text>
         </View>
 
         {/* Delete Button */}

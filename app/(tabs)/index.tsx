@@ -37,7 +37,7 @@ export default function MapScreen() {
   /** Update selected series when active series changes */
   useEffect(() => {
     if (activeSeries) {
-      setSelectedSeriesIds([activeSeries.id]);
+      setSelectedSeriesIds([activeSeries.seriesId]);
     }
   }, [activeSeries]);
 
@@ -138,7 +138,7 @@ export default function MapScreen() {
       { text: 'Show All', onPress: () => setSelectedSeriesIds([]) },
       ...allSeries.slice(0, 5).map((s) => ({
         text: s.name,
-        onPress: () => setSelectedSeriesIds([s.id]),
+        onPress: () => setSelectedSeriesIds([s.seriesId]),
       })),
       { text: 'Cancel', style: 'cancel' as const },
     ];
@@ -173,7 +173,7 @@ export default function MapScreen() {
           {selectedSeriesIds.length === 0
             ? 'All Series'
             : selectedSeriesIds.length === 1
-            ? allSeries.find((s) => s.id === selectedSeriesIds[0])?.name ?? 'Series'
+            ? allSeries.find((s) => s.seriesId === selectedSeriesIds[0])?.name ?? 'Series'
             : `${selectedSeriesIds.length} Series`}
         </Text>
       </TouchableOpacity>

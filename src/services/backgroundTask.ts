@@ -4,7 +4,9 @@
  */
 import * as TaskManager from 'expo-task-manager';
 import * as Location from 'expo-location';
+import { eq } from 'drizzle-orm';
 import { getDatabaseSync } from '../db/client';
+import { series } from '../db/schema';
 import { insertLocation } from '../db/queries/locations';
 import { updateSeriesPointCount } from '../db/queries/series';
 
@@ -36,7 +38,11 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
     const db = getDatabaseSync();
 
     /** Get the active series */
-    const activeSeries = db.getFirstSync<{ id: number }>('SELECT id FROM series WHERE is_active = 1');
+    const activeSeries = db
+      .select({ seriesId: series.seriesId })
+      .from(series)
+      .where(eq(series.isActive, true))
+      .get();
 
     if (!activeSeries) {
       console.warn('[BackgroundTask] No active series found');
@@ -47,7 +53,7 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
     for (const location of locations) {
       insertLocation(
         db,
-        activeSeries.id,
+        activeSeries.seriesId,
         location.coords.latitude,
         location.coords.longitude,
         location.coords.altitude,
@@ -57,9 +63,9 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
     }
 
     /** Update point count */
-    updateSeriesPointCount(db, activeSeries.id);
+    updateSeriesPointCount(db, activeSeries.seriesId);
 
-    console.log(`[BackgroundTask] Saved ${locations.length} locations to series ${activeSeries.id}`);
+    console.log(`[BackgroundTask] Saved ${locations.length} locations to series ${activeSeries.seriesId}`);
   } catch (err) {
     console.error('[BackgroundTask] Failed to save locations:', err);
   }

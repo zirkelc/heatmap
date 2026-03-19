@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
-import type { SQLiteDatabase } from 'expo-sqlite';
 import { useDatabaseReady } from './DatabaseContext';
 import {
   getTrackingSettings,
@@ -7,6 +6,9 @@ import {
   DEFAULT_SETTINGS,
   type TrackingSettings,
 } from '../db/queries/settings';
+import type { getDatabase } from '../db/client';
+
+type DrizzleDB = ReturnType<typeof getDatabase>;
 
 interface SettingsContextValue {
   settings: TrackingSettings;
@@ -18,7 +20,7 @@ const SettingsContext = createContext<SettingsContextValue | null>(null);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const isDbReady = useDatabaseReady();
-  const [db, setDb] = useState<SQLiteDatabase | null>(null);
+  const [db, setDb] = useState<DrizzleDB | null>(null);
   const [settings, setSettings] = useState<TrackingSettings>(DEFAULT_SETTINGS);
   const [isLoaded, setIsLoaded] = useState(false);
 

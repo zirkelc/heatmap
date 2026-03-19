@@ -3,16 +3,21 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "scripts": {
-    "start": "expo start",
+    "start": "expo start --ios",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "build:dev:ios": "npx expo run:ios",
-    "build:dev:android": "npx expo run:android"
+    "build:dev:ios": "expo run:ios",
+    "build:dev:android": "expo run:android",
+    "build:release:ios": "expo run:ios --device --configuration Release --no-bundler",
+    "build:release:android": "expo run:android --device --variant release",
+    "db:generate": "drizzle-kit generate",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@expo/metro-runtime": "^6.1.2",
     "@react-native-community/slider": "^5.1.2",
+    "drizzle-orm": "^0.45.1",
     "expo": "~54.0.33",
     "expo-constants": "^18.0.13",
     "expo-dev-client": "^6.0.20",
@@ -30,6 +35,8 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.17",
+    "babel-plugin-inline-import": "^3.0.0",
+    "drizzle-kit": "^0.31.10",
     "typescript": "~5.9.2"
   },
   "private": true

@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
-import type { SQLiteDatabase } from 'expo-sqlite';
-import { useDatabase, useDatabaseReady } from './DatabaseContext';
+import { useDatabaseReady } from './DatabaseContext';
 import { useSettings } from './SettingsContext';
 import {
   startTracking as startTrackingService,
@@ -17,6 +16,9 @@ import {
   getAllSeries,
 } from '../db/queries/series';
 import type { Series } from '../db/schema';
+import type { getDatabase } from '../db/client';
+
+type DrizzleDB = ReturnType<typeof getDatabase>;
 
 interface TrackingContextValue {
   isTracking: boolean;
@@ -33,7 +35,7 @@ const TrackingContext = createContext<TrackingContextValue | null>(null);
 export function TrackingProvider({ children }: { children: ReactNode }) {
   const isDbReady = useDatabaseReady();
   const { settings } = useSettings();
-  const [db, setDb] = useState<SQLiteDatabase | null>(null);
+  const [db, setDb] = useState<DrizzleDB | null>(null);
   const [isTracking, setIsTracking] = useState(false);
   const [activeSeries, setActiveSeriesState] = useState<Series | null>(null);
   const [allSeries, setAllSeries] = useState<Array<Series>>([]);
@@ -59,7 +61,7 @@ export function TrackingProvider({ children }: { children: ReactNode }) {
       setIsTracking(tracking);
 
       const active = getActiveSeries(db);
-      setActiveSeriesState(active);
+      setActiveSeriesState(active ?? null);
 
       const series = getAllSeries(db);
       setAllSeries(series);
@@ -73,7 +75,7 @@ export function TrackingProvider({ children }: { children: ReactNode }) {
     const series = getAllSeries(db);
     setAllSeries(series);
     const active = getActiveSeries(db);
-    setActiveSeriesState(active);
+    setActiveSeriesState(active ?? null);
   }, [db]);
 
   const startNewSeries = useCallback(async (): Promise<Series | null> => {
@@ -96,7 +98,7 @@ export function TrackingProvider({ children }: { children: ReactNode }) {
       }
 
       const series = createSeries(db, name, city, country);
-      setActiveSeries(db, series.id);
+      setActiveSeries(db, series.seriesId);
 
       const started = await startTrackingService({
         timeInterval: settings.timeInterval,
@@ -135,7 +137,7 @@ export function TrackingProvider({ children }: { children: ReactNode }) {
 
       setIsTracking(true);
       const active = getActiveSeries(db);
-      setActiveSeriesState(active);
+      setActiveSeriesState(active ?? null);
       refreshSeries();
 
       return true;

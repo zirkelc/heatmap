@@ -50,17 +50,17 @@ export function SeriesPrompt({
               <Text style={styles.sectionTitle}>Or continue recent</Text>
               <FlatList
                 data={recentSeries}
-                keyExtractor={(item) => item.id.toString()}
+                keyExtractor={(item) => item.seriesId.toString()}
                 renderItem={({ item }) => (
                   <TouchableOpacity
                     style={styles.seriesItem}
-                    onPress={() => onContinue(item.id)}
+                    onPress={() => onContinue(item.seriesId)}
                   >
                     <Text style={styles.seriesName} numberOfLines={1}>
                       {item.name}
                     </Text>
                     <Text style={styles.seriesInfo}>
-                      {item.point_count} points
+                      {item.pointCount} points
                     </Text>
                   </TouchableOpacity>
                 )}

@@ -39,7 +39,7 @@ export default function HistoryScreen() {
       return;
     }
 
-    const success = await continueSeries(item.id);
+    const success = await continueSeries(item.seriesId);
     if (success) {
       router.navigate('/(tabs)');
     } else {
@@ -55,7 +55,7 @@ export default function HistoryScreen() {
 
   const handleSaveRename = useCallback(() => {
     if (selectedSeries && newName.trim()) {
-      rename(selectedSeries.id, newName.trim());
+      rename(selectedSeries.seriesId, newName.trim());
       setRenameModalVisible(false);
       setSelectedSeries(null);
       setNewName('');
@@ -65,20 +65,20 @@ export default function HistoryScreen() {
   const handleDelete = useCallback((item: Series) => {
     Alert.alert(
       'Delete Series',
-      `Are you sure you want to delete "${item.name}"? This will remove all ${item.point_count} location points.`,
+      `Are you sure you want to delete "${item.name}"? This will remove all ${item.pointCount} location points.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => remove(item.id),
+          onPress: () => remove(item.seriesId),
         },
       ]
     );
   }, [remove]);
 
   const handlePress = useCallback((item: Series) => {
-    router.push(`/series/${item.id}`);
+    router.push(`/series/${item.seriesId}`);
   }, [router]);
 
   const handleLongPress = useCallback((item: Series) => {
@@ -114,7 +114,7 @@ export default function HistoryScreen() {
         <Text style={styles.cardTitle} numberOfLines={1}>
           {item.name}
         </Text>
-        {item.is_active === 1 && (
+        {item.isActive && (
           <View style={styles.activeBadge}>
             <View style={styles.activeDot} />
             <Text style={styles.activeText}>Recording</Text>
@@ -128,11 +128,11 @@ export default function HistoryScreen() {
             {item.city}{item.country ? `, ${item.country}` : ''}
           </Text>
         )}
-        <Text style={styles.cardDate}>{formatDate(item.created_at)}</Text>
+        <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>
       </View>
 
       <View style={styles.cardFooter}>
-        <Text style={styles.pointCount}>{item.point_count} points</Text>
+        <Text style={styles.pointCount}>{item.pointCount} points</Text>
         <View style={styles.actions}>
           <TouchableOpacity
             style={styles.actionButton}
@@ -170,7 +170,7 @@ export default function HistoryScreen() {
       ) : (
         <FlatList
           data={series}
-          keyExtractor={(item) => item.id.toString()}
+          keyExtractor={(item) => item.seriesId.toString()}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           ItemSeparatorComponent={() => <View style={styles.separator} />}

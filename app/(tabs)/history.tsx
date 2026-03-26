@@ -10,12 +10,12 @@ import {
   Modal,
   Pressable,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useDatabase, useDatabaseReady } from '../../src/contexts/DatabaseContext';
 import { useTracking } from '../../src/contexts/TrackingContext';
 import { useLiveSeries } from '../../src/hooks/useLiveSeries';
-import { updateSeriesName, deleteSeries } from '../../src/db/queries/series';
+import { updateSeriesName, deleteSeries, mergeSeries } from '../../src/db/queries/series';
 import type { Series } from '../../src/db/schema';
 
 export default function HistoryScreen() {
@@ -24,10 +24,32 @@ export default function HistoryScreen() {
   const db = useDatabase();
   const { continueSeries, isTracking } = useTracking();
   const { series } = useLiveSeries();
+  const insets = useSafeAreaInsets();
 
   const [renameModalVisible, setRenameModalVisible] = useState(false);
   const [selectedSeries, setSelectedSeries] = useState<Series | null>(null);
   const [newName, setNewName] = useState('');
+
+  /** Multi-select state */
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  const toggleSelection = useCallback((id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  }, []);
 
   const handleContinue = useCallback(async (item: Series) => {
     if (isTracking) {
@@ -74,21 +96,86 @@ export default function HistoryScreen() {
   }, [db]);
 
   const handlePress = useCallback((item: Series) => {
-    router.push(`/series/${item.seriesId}`);
-  }, [router]);
+    if (selectionMode) {
+      toggleSelection(item.seriesId);
+    } else {
+      router.push(`/series/${item.seriesId}`);
+    }
+  }, [router, selectionMode, toggleSelection]);
 
   const handleLongPress = useCallback((item: Series) => {
+    if (selectionMode) {
+      return;
+    }
+    setSelectionMode(true);
+    setSelectedIds(new Set([item.seriesId]));
+  }, [selectionMode]);
+
+  /** Batch delete selected series */
+  const handleBatchDelete = useCallback(() => {
+    const count = selectedIds.size;
+    const totalPoints = series
+      .filter(s => selectedIds.has(s.seriesId))
+      .reduce((sum, s) => sum + (s.pointCount ?? 0), 0);
+
     Alert.alert(
-      item.name,
-      'Choose an action',
+      'Delete Series',
+      `Delete ${count} series? This will remove all ${totalPoints} location points.`,
       [
-        { text: 'Continue Tracking', onPress: () => handleContinue(item) },
-        { text: 'Rename', onPress: () => handleRename(item) },
-        { text: 'Delete', onPress: () => handleDelete(item), style: 'destructive' },
         { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            for (const id of selectedIds) {
+              deleteSeries(db, id);
+            }
+            clearSelection();
+          },
+        },
       ]
     );
-  }, [handleContinue, handleRename, handleDelete]);
+  }, [db, selectedIds, series, clearSelection]);
+
+  /** Merge selected series - show target picker */
+  const handleMerge = useCallback(() => {
+    const selectedSeriesList = series.filter(s => selectedIds.has(s.seriesId));
+    if (selectedSeriesList.length < 2) {
+      Alert.alert('Select More', 'Select at least 2 series to merge.');
+      return;
+    }
+
+    const options = selectedSeriesList.map(s => ({
+      text: s.name,
+      onPress: () => {
+        const otherIds = selectedSeriesList
+          .filter(other => other.seriesId !== s.seriesId)
+          .map(other => other.seriesId);
+        const totalPoints = selectedSeriesList.reduce((sum, item) => sum + (item.pointCount ?? 0), 0);
+
+        Alert.alert(
+          'Confirm Merge',
+          `Merge ${selectedSeriesList.length} series into "${s.name}"? (${totalPoints} total points)`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Merge',
+              onPress: () => {
+                mergeSeries(db, s.seriesId, otherIds);
+                clearSelection();
+              },
+            },
+          ]
+        );
+      },
+    }));
+
+    Alert.alert(
+      'Merge Into',
+      'Select the target series to merge into:',
+      [...options, { text: 'Cancel', style: 'cancel' }]
+    );
+  }, [db, selectedIds, series, clearSelection]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -99,47 +186,58 @@ export default function HistoryScreen() {
     });
   };
 
-  const renderItem = ({ item }: { item: Series }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => handlePress(item)}
-      onLongPress={() => handleLongPress(item)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle} numberOfLines={1}>
-          {item.name}
-        </Text>
-        {item.isActive && (
-          <View style={styles.activeBadge}>
-            <View style={styles.activeDot} />
-            <Text style={styles.activeText}>Recording</Text>
-          </View>
-        )}
-      </View>
+  const renderItem = ({ item }: { item: Series }) => {
+    const isSelected = selectedIds.has(item.seriesId);
 
-      <View style={styles.cardDetails}>
-        {item.city && (
-          <Text style={styles.cardLocation}>
-            {item.city}{item.country ? `, ${item.country}` : ''}
+    return (
+      <TouchableOpacity
+        style={[styles.card, isSelected && styles.cardSelected]}
+        onPress={() => handlePress(item)}
+        onLongPress={() => handleLongPress(item)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.cardHeader}>
+          {selectionMode && (
+            <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+              {isSelected && <Text style={styles.checkmark}>✓</Text>}
+            </View>
+          )}
+          <Text style={styles.cardTitle} numberOfLines={1}>
+            {item.name}
           </Text>
-        )}
-        <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>
-      </View>
-
-      <View style={styles.cardFooter}>
-        <Text style={styles.pointCount}>{item.pointCount} points</Text>
-        <View style={styles.actions}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => handleContinue(item)}
-          >
-            <Text style={styles.actionText}>Continue</Text>
-          </TouchableOpacity>
+          {item.isActive && (
+            <View style={styles.activeBadge}>
+              <View style={styles.activeDot} />
+              <Text style={styles.activeText}>Recording</Text>
+            </View>
+          )}
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+
+        <View style={styles.cardDetails}>
+          {item.city && (
+            <Text style={styles.cardLocation}>
+              {item.city}{item.country ? `, ${item.country}` : ''}
+            </Text>
+          )}
+          <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>
+        </View>
+
+        <View style={styles.cardFooter}>
+          <Text style={styles.pointCount}>{item.pointCount} points</Text>
+          {!selectionMode && (
+            <View style={styles.actions}>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => handleContinue(item)}
+              >
+                <Text style={styles.actionText}>Continue</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   if (!isDbReady) {
     return (
@@ -153,24 +251,59 @@ export default function HistoryScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={{ flex: 1 }} collapsable={false}>
       <View style={styles.header}>
-        <Text style={styles.title}>History</Text>
+        {selectionMode ? (
+          <View style={styles.selectionHeader}>
+            <TouchableOpacity onPress={clearSelection}>
+              <Text style={styles.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={styles.selectionCount}>{selectedIds.size} selected</Text>
+          </View>
+        ) : (
+          <Text style={styles.title}>History</Text>
+        )}
       </View>
 
-      {series.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>No tracking history</Text>
-          <Text style={styles.emptyText}>
-            Start tracking from the Map tab to create your first series.
-          </Text>
+      <View style={styles.listContainer}>
+        {series.length === 0 ? (
+          <View style={styles.empty}>
+            <Text style={styles.emptyTitle}>No tracking history</Text>
+            <Text style={styles.emptyText}>
+              Start tracking from the Map tab to create your first series.
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={series}
+            keyExtractor={(item) => item.seriesId.toString()}
+            renderItem={renderItem}
+            contentContainerStyle={styles.list}
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
+          />
+        )}
+      </View>
+
+      {/* Selection Action Bar */}
+      {selectionMode && selectedIds.size > 0 && (
+        <View style={[styles.actionBar, { marginBottom: insets.bottom + 50 }]}>
+          <TouchableOpacity
+            style={[styles.actionBarButton, styles.deleteButton]}
+            onPress={handleBatchDelete}
+          >
+            <Text style={styles.deleteButtonText}>Delete</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionBarButton, styles.mergeButton]}
+            onPress={handleMerge}
+            disabled={selectedIds.size < 2}
+          >
+            <Text style={[
+              styles.mergeButtonText,
+              selectedIds.size < 2 && styles.disabledText
+            ]}>
+              Merge
+            </Text>
+          </TouchableOpacity>
         </View>
-      ) : (
-        <FlatList
-          data={series}
-          keyExtractor={(item) => item.seriesId.toString()}
-          renderItem={renderItem}
-          contentContainerStyle={styles.list}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-        />
       )}
 
       {/* Rename Modal */}
@@ -238,6 +371,9 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
     color: '#1A1A1A',
+  },
+  listContainer: {
+    flex: 1,
   },
   list: {
     padding: 16,
@@ -391,5 +527,76 @@ const styles = StyleSheet.create({
   },
   modalButtonTextPrimary: {
     color: '#FFFFFF',
+  },
+  /** Selection mode styles */
+  selectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cancelText: {
+    fontSize: 17,
+    color: '#4285F4',
+  },
+  selectionCount: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#1A1A1A',
+  },
+  cardSelected: {
+    borderWidth: 2,
+    borderColor: '#4285F4',
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#CCCCCC',
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxSelected: {
+    backgroundColor: '#4285F4',
+    borderColor: '#4285F4',
+  },
+  checkmark: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  actionBar: {
+    flexDirection: 'row',
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+    gap: 12,
+  },
+  actionBarButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  deleteButton: {
+    backgroundColor: '#FFEBEE',
+  },
+  deleteButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#EA4335',
+  },
+  mergeButton: {
+    backgroundColor: '#E3F2FD',
+  },
+  mergeButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4285F4',
+  },
+  disabledText: {
+    opacity: 0.4,
   },
 });

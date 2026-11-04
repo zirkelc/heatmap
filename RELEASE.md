@@ -41,7 +41,7 @@ Status on 2026-11-04: the "Must do" and most "Should do" items are done (not com
 
 ### Open
 
-- [x] **Google Maps API key.** New key "Heatmap iOS (App Store)" in Google Cloud project `heatmap-449913`, restricted to `dev.zirkelc.heatmap` and to the Maps SDK for iOS. It is in `.env.local` and works on the simulator. Open: set it as the EAS environment variable `GOOGLE_MAPS_IOS_API_KEY` (production, sensitive), and delete the old key "Maps Platform API Key", which is in the git history.
+- [x] **Google Maps API key.** New key "Heatmap iOS (App Store)" in Google Cloud project `heatmap-449913`, restricted to `dev.zirkelc.heatmap` and to the Maps SDK for iOS. It is in `.env.local` and works on the simulator. It is also the EAS environment variable `GOOGLE_MAPS_IOS_API_KEY` (sensitive). Open: Chris deletes the old key "Maps Platform API Key" (in the git history) in the console.
 - [ ] **Real device test** of a Release build (or the TestFlight build): grant "While Using", lock the phone for 30 minutes while you walk, open the app again, stop. Also: deny the permission, then start again (the "Open Settings" alert must show).
 - [ ] **Expo SDK.** SDK 54 builds with Xcode 27.2 locally. EAS chooses its own Xcode image. If Apple requires a newer SDK at upload time, upgrade then.
 
@@ -59,8 +59,8 @@ Drafts are in `fastlane/metadata/` (the layout of `fastlane deliver`).
 - [x] Privacy policy and support page drafts (`docs/`), missing the contact email and the final name
 - [ ] Support URL and privacy policy URL (after hosting is decided)
 - [x] Screenshots, iPhone 6.9 inch (1320x2868): `scripts/take-screenshots.sh` writes 5 images to `fastlane/screenshots/en-US/` (ignored by git)
-- [ ] Age rating questionnaire (expected result: 4+)
-- [ ] App Privacy answers. Draft, from the privacy manifest that `react-native-maps` ships for Google Maps SDK 8.4.0:
+- [x] Age rating questionnaire (all answers "None" or "No", set through the API)
+- [x] App Privacy answers entered (not published: "Publish" needs the privacy policy URL). Answers, from the privacy manifest that `react-native-maps` ships for Google Maps SDK 8.4.0:
   - Data not linked to the user, not used for tracking: Crash Data (Analytics), Device ID (Analytics, App Functionality), Performance Data (Analytics), Product Interaction (Analytics).
   - Data linked to the user, not used for tracking: User ID (Analytics).
   - Location: the app's own recorded points never leave the device, so they are not "collected" in Apple's meaning. The Google manifest declares no location.
@@ -73,10 +73,16 @@ Known: the Apple Team ID is `D568Q9VY3L` (from the Typoless project; set in `eas
 
 - [x] **App Store Connect API key.** Team key "EAS", role Admin, Key ID `7475LHDY74`, Issuer ID `e014f779-1183-4a6b-a68b-93769aac2358`. The `.p8` is in `~/.appstoreconnect/private_keys/` (keep a backup in the password manager). `eas.json` uses it for `eas submit`. For `eas build`, set `EXPO_ASC_API_KEY_PATH`, `EXPO_ASC_KEY_ID`, `EXPO_ASC_ISSUER_ID` and `EXPO_APPLE_TEAM_ID`.
 - [x] **App record.** "Heatmap: Where I've Been", Apple ID `6830774275`, SKU `heatmap`, primary language English (U.S.).
-- [ ] **Expo access token** (`EXPO_TOKEN`) for the account that owns project `597ee4bf-187c-4d9c-a3ab-284d2fc7a34d`: expo.dev > Account settings > Access tokens. There is no Expo login on this Mac now.
+- [x] **Expo login.** eas-cli is logged in as `zirkelc` on this Mac (device login).
 - [ ] **Web-only steps:** App Privacy answers and DSA trader status have no API. Chris does them in the browser, or logs in to App Store Connect in a browser that the agent can control.
 
-## 5. Submission runbook
+## 5. Status of the submission
+
+- Build 1.0.0 (4) from EAS build `a44d631b` is uploaded to App Store Connect (2026-11-04).
+- Through the API: subtitle, description, keywords, promotional text, categories, version `1.0.0`, manual release, age rating, 5 screenshots (6.9 inch).
+- Open: privacy policy and support URLs, publish App Privacy, copyright, App Review contact, price and availability, DSA trader status (Chris), TestFlight test on an iPhone, select the build, submit for review.
+
+## 6. Submission runbook
 
 1. Commit the work. Test a Release build on a real iPhone (see "Open").
 2. Done: `submit.production.ios` in `eas.json` has `ascAppId` and the API key.

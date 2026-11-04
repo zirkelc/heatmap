@@ -1,8 +1,6 @@
 import { eq, desc, sql, count } from 'drizzle-orm';
 import { series, locations, type Series } from '../schema';
-import type { getDatabase } from '../client';
-
-type DB = ReturnType<typeof getDatabase>;
+import type { DB } from '../types';
 
 /**
  * Get all series ordered by creation date (newest first).
@@ -55,13 +53,12 @@ export function updateSeriesName(db: DB, id: number, name: string): void {
 }
 
 /**
- * Set a series as active (deactivates all others).
- * Uses transaction for atomicity.
+ * Set a series as active (deactivates all others) in one transaction.
  */
 export function setActiveSeries(db: DB, id: number): void {
-  db.$client.withTransactionSync(() => {
-    db.update(series).set({ isActive: false }).run();
-    db.update(series).set({ isActive: true }).where(eq(series.seriesId, id)).run();
+  db.transaction((tx) => {
+    tx.update(series).set({ isActive: false }).run();
+    tx.update(series).set({ isActive: true }).where(eq(series.seriesId, id)).run();
   });
 }
 
@@ -95,29 +92,20 @@ export function updateSeriesPointCount(db: DB, id: number): void {
 }
 
 /**
- * Merge multiple series into one target series.
- * Uses transaction for atomicity.
+ * Merge multiple series into one target series in one transaction.
  */
 export function mergeSeries(db: DB, targetId: number, sourceIds: Array<number>): void {
-  db.$client.withTransactionSync(() => {
+  db.transaction((tx) => {
     for (const sourceId of sourceIds) {
       if (sourceId !== targetId) {
-        db.update(locations)
+        tx.update(locations)
           .set({ seriesId: targetId })
           .where(eq(locations.seriesId, sourceId))
           .run();
-        db.delete(series).where(eq(series.seriesId, sourceId)).run();
+        tx.delete(series).where(eq(series.seriesId, sourceId)).run();
       }
     }
 
-    const pointCountSubquery = db
-      .select({ value: count() })
-      .from(locations)
-      .where(eq(locations.seriesId, targetId));
-
-    db.update(series)
-      .set({ pointCount: sql`(${pointCountSubquery})` })
-      .where(eq(series.seriesId, targetId))
-      .run();
+    updateSeriesPointCount(tx, targetId);
   });
 }

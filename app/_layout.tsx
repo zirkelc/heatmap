@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { DatabaseProvider } from '../src/contexts/DatabaseContext';
 import { SettingsProvider } from '../src/contexts/SettingsContext';
 import { TrackingProvider } from '../src/contexts/TrackingContext';
+import { DemoLauncher } from '../src/dev/DemoLauncher';
 
 /** Import background task to register it globally */
 import '../src/services/backgroundTask';
@@ -25,6 +26,7 @@ export default function RootLayout() {
               }}
             />
           </Stack>
+          {process.env.EXPO_PUBLIC_SEED_DEMO === '1' && <DemoLauncher />}
         </TrackingProvider>
       </SettingsProvider>
     </DatabaseProvider>

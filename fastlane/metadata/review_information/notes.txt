@@ -1,0 +1,9 @@
+No account or login is necessary.
+
+How to test:
+1. Open the app. The Map tab shows a map.
+2. Tap "Start", then "Start New Series". The app explains that it records the location, then iOS asks for the location permission. Allow "While Using the App".
+3. Walk or drive for some minutes. The app can be in the background or the screen can be locked. iOS shows the location indicator during the recording.
+4. Open the app and tap "Stop". The Map tab shows the recorded points as a heatmap. The History tab shows the series.
+
+Background location: the app records the location in the background only while the user runs a recording, which the user starts and stops on the Map tab. This is the main function of the app. The app needs only the "While Using the App" permission. The recorded locations are stored only on the device and are not sent to a server.

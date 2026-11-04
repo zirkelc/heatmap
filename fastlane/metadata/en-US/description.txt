@@ -1,0 +1,21 @@
+See the places where you spend your time.
+
+Start a recording when you go out. The app saves your location while the recording runs, also when the app is in the background or the screen is locked. On the map, the places where you were most often show as a heatmap: green where you passed, red where you stayed.
+
+RECORD
+• Start and stop a recording with one tap.
+• Each recording is a series with a name, for example the city and the date.
+• Continue an older series to add more points to it.
+• Set how often the app saves a point: by time and by distance.
+
+EXPLORE
+• See all your series on one map, or select one series.
+• Open a series to see its map, its number of points and its time range.
+• Rename, merge and delete series.
+
+PRIVATE
+• No account. No sign-up.
+• Your recorded locations stay on your iPhone. The app does not send them to a server.
+• The app uses your location only while a recording runs and to show your position on the map.
+
+The map is from Google Maps.

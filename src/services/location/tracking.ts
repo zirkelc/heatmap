@@ -1,24 +1,69 @@
+import { Alert, Linking } from 'react-native';
 import * as Location from 'expo-location';
 import { LOCATION_TASK_NAME } from '../backgroundTask';
 
 /**
- * Request location permissions (foreground and background).
+ * Show a message and resolve with the button that the user pressed.
  */
-export async function requestLocationPermissions(): Promise<{
-  foreground: boolean;
-  background: boolean;
-}> {
-  const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
-  const foreground = foregroundStatus === 'granted';
+function ask(title: string, message: string, cancel: string, confirm: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    Alert.alert(
+      title,
+      message,
+      [
+        { text: cancel, style: 'cancel', onPress: () => resolve(false) },
+        { text: confirm, onPress: () => resolve(true) },
+      ],
+      { cancelable: true, onDismiss: () => resolve(false) }
+    );
+  });
+}
 
-  if (!foreground) {
-    return { foreground: false, background: false };
+/**
+ * Make sure that the app has the "When In Use" location permission.
+ * Recording does not need "Always": updates that start in the foreground continue
+ * in the background, and iOS shows the location indicator.
+ * Before the first system prompt, the app explains what it records. If the user
+ * declined before, the app offers to open the system settings.
+ */
+export async function ensureLocationPermission(): Promise<boolean> {
+  const current = await Location.getForegroundPermissionsAsync();
+  if (current.granted) {
+    return true;
   }
 
-  const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
-  const background = backgroundStatus === 'granted';
+  if (current.canAskAgain) {
+    const proceed = await ask(
+      'Record Your Location',
+      'While a recording runs, the app saves your location, also when it is in the background. Your recorded locations stay on this device.',
+      'Not Now',
+      'Continue'
+    );
+    if (!proceed) {
+      return false;
+    }
+    const requested = await Location.requestForegroundPermissionsAsync();
+    return requested.granted;
+  }
 
-  return { foreground, background };
+  const openSettings = await ask(
+    'Location Access Is Off',
+    'To record, allow location access in Settings.',
+    'Cancel',
+    'Open Settings'
+  );
+  if (openSettings) {
+    await Linking.openSettings();
+  }
+  return false;
+}
+
+/**
+ * True if the app has the location permission. Does not show a prompt.
+ */
+export async function hasLocationPermission(): Promise<boolean> {
+  const { granted } = await Location.getForegroundPermissionsAsync();
+  return granted;
 }
 
 /**
@@ -29,50 +74,34 @@ export async function isTrackingActive(): Promise<boolean> {
 }
 
 export interface TrackingOptions {
-  timeInterval?: number;
-  distanceInterval?: number;
+  timeInterval: number;
+  distanceInterval: number;
 }
 
-const DEFAULT_TIME_INTERVAL = 60_000;
-const DEFAULT_DISTANCE_INTERVAL = 50;
-
 /**
- * Start background location tracking.
+ * Start background location tracking. The caller must make sure that the
+ * location permission is granted.
  */
-export async function startTracking(options?: TrackingOptions): Promise<boolean> {
-  const permissions = await requestLocationPermissions();
-
-  if (!permissions.foreground || !permissions.background) {
-    console.error('[Tracking] Missing permissions:', permissions);
-    return false;
-  }
-
-  const isStarted = await isTrackingActive();
-  if (isStarted) {
-    console.log('[Tracking] Already tracking');
+export async function startTracking(options: TrackingOptions): Promise<boolean> {
+  if (await isTrackingActive()) {
     return true;
   }
-
-  const timeInterval = options?.timeInterval ?? DEFAULT_TIME_INTERVAL;
-  const distanceInterval = options?.distanceInterval ?? DEFAULT_DISTANCE_INTERVAL;
 
   try {
     await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
       accuracy: Location.Accuracy.Balanced,
-      timeInterval,
-      distanceInterval,
-      deferredUpdatesInterval: timeInterval,
-      deferredUpdatesDistance: distanceInterval,
+      timeInterval: options.timeInterval,
+      distanceInterval: options.distanceInterval,
+      deferredUpdatesInterval: options.timeInterval,
+      deferredUpdatesDistance: options.distanceInterval,
       showsBackgroundLocationIndicator: true,
       foregroundService: {
-        notificationTitle: 'Heatmap Tracking',
-        notificationBody: 'Recording your location for the heatmap',
+        notificationTitle: 'Recording',
+        notificationBody: 'Your location is recorded for the heatmap',
         notificationColor: '#4285F4',
       },
       pausesUpdatesAutomatically: false,
     });
-
-    console.log('[Tracking] Started with intervals:', { timeInterval, distanceInterval });
     return true;
   } catch (error) {
     console.error('[Tracking] Failed to start:', error);
@@ -84,35 +113,32 @@ export async function startTracking(options?: TrackingOptions): Promise<boolean>
  * Stop background location tracking.
  */
 export async function stopTracking(): Promise<void> {
-  const isStarted = await isTrackingActive();
-
-  if (!isStarted) {
-    console.log('[Tracking] Not currently tracking');
+  if (!(await isTrackingActive())) {
     return;
   }
 
   try {
     await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
-    console.log('[Tracking] Stopped');
   } catch (error) {
     console.error('[Tracking] Failed to stop:', error);
   }
 }
 
 /**
- * Get the current location (one-time).
+ * Get the current location without a permission prompt.
+ * Uses a recent known location first, because a new fix can take long indoors.
  */
 export async function getCurrentLocation(): Promise<Location.LocationObject | null> {
-  const { status } = await Location.requestForegroundPermissionsAsync();
-
-  if (status !== 'granted') {
+  if (!(await hasLocationPermission())) {
     return null;
   }
 
   try {
-    return await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
-    });
+    const lastKnown = await Location.getLastKnownPositionAsync({ maxAge: 5 * 60_000 });
+    if (lastKnown) {
+      return lastKnown;
+    }
+    return await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
   } catch (error) {
     console.error('[Tracking] Failed to get current location:', error);
     return null;

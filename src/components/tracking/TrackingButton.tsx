@@ -5,15 +5,17 @@ interface TrackingButtonProps {
   isTracking: boolean;
   isLoading?: boolean;
   onPress: () => void;
+  /** Distance from the bottom edge of the screen */
+  bottom: number;
 }
 
 /**
  * Floating action button for starting/stopping location tracking.
  */
-export function TrackingButton({ isTracking, isLoading, onPress }: TrackingButtonProps) {
+export function TrackingButton({ isTracking, isLoading, onPress, bottom }: TrackingButtonProps) {
   return (
     <TouchableOpacity
-      style={[styles.button, isTracking && styles.buttonActive]}
+      style={[styles.button, { bottom }, isTracking && styles.buttonActive]}
       onPress={onPress}
       disabled={isLoading}
       activeOpacity={0.8}
@@ -33,7 +35,6 @@ export function TrackingButton({ isTracking, isLoading, onPress }: TrackingButto
 const styles = StyleSheet.create({
   button: {
     position: 'absolute',
-    bottom: 100,
     alignSelf: 'center',
     backgroundColor: '#4285F4',
     borderRadius: 28,

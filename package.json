@@ -13,18 +13,20 @@
     "build:release:ios": "expo run:ios --device --configuration Release --no-bundler",
     "build:release:android": "expo run:android --device --variant release",
     "db:generate": "drizzle-kit generate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@expo/metro-runtime": "^6.1.2",
-    "@react-native-community/slider": "^5.1.2",
+    "@react-native-community/slider": "5.0.1",
     "drizzle-orm": "^0.45.1",
-    "expo": "~54.0.33",
-    "expo-constants": "^18.0.13",
-    "expo-dev-client": "^6.0.20",
-    "expo-linking": "^8.0.11",
+    "expo": "~54.0.38",
+    "expo-constants": "^18.0.14",
+    "expo-dev-client": "^6.0.21",
+    "expo-linking": "^8.0.12",
     "expo-location": "^19.0.8",
-    "expo-router": "^6.0.23",
+    "expo-router": "^6.0.24",
     "expo-sqlite": "^16.0.10",
     "expo-status-bar": "~3.0.9",
     "expo-task-manager": "^14.0.9",
@@ -36,9 +38,12 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.17",
+    "@types/sql.js": "^1.4.11",
     "babel-plugin-inline-import": "^3.0.0",
     "drizzle-kit": "^0.31.10",
-    "typescript": "~5.9.2"
+    "sql.js": "^1.15.2",
+    "typescript": "~5.9.2",
+    "vitest": "^5.1.0"
   },
   "private": true
 }

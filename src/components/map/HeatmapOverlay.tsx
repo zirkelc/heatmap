@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { Heatmap } from 'react-native-maps';
-import type { HeatmapPoint } from '../../hooks/useHeatmapPoints';
+import type { HeatmapPoint } from '../../hooks/useLiveHeatmap';
 
 interface HeatmapOverlayProps {
   points: Array<HeatmapPoint>;
@@ -27,7 +27,8 @@ export const HeatmapOverlay = memo(function HeatmapOverlay({ points }: HeatmapOv
       radius={40}
       gradient={{
         colors: ['#79BC6A', '#BBCF4C', '#EEC20B', '#F29305', '#E50000'],
-        startPoints: [0.01, 0.25, 0.5, 0.75, 1],
+        // Red starts below the maximum, so that places with many points stand out
+        startPoints: [0.01, 0.1, 0.25, 0.45, 0.7],
         colorMapSize: 256,
       }}
     />

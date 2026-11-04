@@ -4,36 +4,17 @@ import * as schema from './schema';
 
 const DB_NAME = 'heatmap.db';
 
-let rawDatabase: SQLite.SQLiteDatabase | null = null;
 let drizzleInstance: ReturnType<typeof drizzle<typeof schema>> | null = null;
 
 /**
- * Get the raw expo-sqlite database instance (for migrations).
- */
-export function getRawDatabase(): SQLite.SQLiteDatabase {
-  if (!rawDatabase) {
-    rawDatabase = SQLite.openDatabaseSync(DB_NAME, { enableChangeListener: true });
-    rawDatabase.execSync('PRAGMA foreign_keys = ON;');
-  }
-  return rawDatabase;
-}
-
-/**
- * Get the Drizzle ORM instance.
+ * Get the shared Drizzle ORM instance. The app and the background location task
+ * use the same connection, so no connection is opened per location update.
  */
 export function getDatabase(): ReturnType<typeof drizzle<typeof schema>> {
   if (!drizzleInstance) {
-    const raw = getRawDatabase();
+    const raw = SQLite.openDatabaseSync(DB_NAME, { enableChangeListener: true });
+    raw.execSync('PRAGMA foreign_keys = ON;');
     drizzleInstance = drizzle(raw, { schema });
   }
   return drizzleInstance;
-}
-
-/**
- * Get a Drizzle instance for background tasks (fresh connection).
- */
-export function getDatabaseSync(): ReturnType<typeof drizzle<typeof schema>> {
-  const raw = SQLite.openDatabaseSync(DB_NAME, { enableChangeListener: true });
-  raw.execSync('PRAGMA foreign_keys = ON;');
-  return drizzle(raw, { schema });
 }

@@ -6,29 +6,26 @@ import {
   FlatList,
   TouchableOpacity,
   Alert,
-  TextInput,
-  Modal,
-  Pressable,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useDatabase, useDatabaseReady } from '../../src/contexts/DatabaseContext';
 import { useTracking } from '../../src/contexts/TrackingContext';
 import { useLiveSeries } from '../../src/hooks/useLiveSeries';
-import { updateSeriesName, deleteSeries, mergeSeries } from '../../src/db/queries/series';
+import { deleteSeries, mergeSeries } from '../../src/db/queries/series';
+import { getMergeTargetIds, includesRecordingSeries } from '../../src/lib/tracking';
 import type { Series } from '../../src/db/schema';
+
+/** Height of the native tab bar above the bottom safe area */
+const TAB_BAR_HEIGHT = 49;
 
 export default function HistoryScreen() {
   const router = useRouter();
   const isDbReady = useDatabaseReady();
   const db = useDatabase();
-  const { continueSeries, isTracking } = useTracking();
+  const { continueSeries, isTracking, recordingSeriesId } = useTracking();
   const { series } = useLiveSeries();
   const insets = useSafeAreaInsets();
-
-  const [renameModalVisible, setRenameModalVisible] = useState(false);
-  const [selectedSeries, setSelectedSeries] = useState<Series | null>(null);
-  const [newName, setNewName] = useState('');
 
   /** Multi-select state */
   const [selectionMode, setSelectionMode] = useState(false);
@@ -53,47 +50,17 @@ export default function HistoryScreen() {
 
   const handleContinue = useCallback(async (item: Series) => {
     if (isTracking) {
-      Alert.alert('Already Tracking', 'Stop current tracking first to continue another series.');
+      Alert.alert('Already Recording', 'Stop the current recording before you continue another series.');
       return;
     }
 
-    const success = await continueSeries(item.seriesId);
-    if (success) {
+    const result = await continueSeries(item.seriesId);
+    if (result === 'started') {
       router.navigate('/(tabs)');
-    } else {
-      Alert.alert('Error', 'Failed to start tracking. Please check location permissions.');
+    } else if (result === 'failed') {
+      Alert.alert('Could Not Start Recording', 'Please try again.');
     }
   }, [continueSeries, isTracking, router]);
-
-  const handleRename = useCallback((item: Series) => {
-    setSelectedSeries(item);
-    setNewName(item.name);
-    setRenameModalVisible(true);
-  }, []);
-
-  const handleSaveRename = useCallback(() => {
-    if (selectedSeries && newName.trim()) {
-      updateSeriesName(db, selectedSeries.seriesId, newName.trim());
-      setRenameModalVisible(false);
-      setSelectedSeries(null);
-      setNewName('');
-    }
-  }, [db, selectedSeries, newName]);
-
-  const handleDelete = useCallback((item: Series) => {
-    Alert.alert(
-      'Delete Series',
-      `Are you sure you want to delete "${item.name}"? This will remove all ${item.pointCount} location points.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => deleteSeries(db, item.seriesId),
-        },
-      ]
-    );
-  }, [db]);
 
   const handlePress = useCallback((item: Series) => {
     if (selectionMode) {
@@ -113,6 +80,11 @@ export default function HistoryScreen() {
 
   /** Batch delete selected series */
   const handleBatchDelete = useCallback(() => {
+    if (includesRecordingSeries(selectedIds, recordingSeriesId)) {
+      Alert.alert('Series Is Recording', 'Stop the recording before you delete this series.');
+      return;
+    }
+
     const count = selectedIds.size;
     const totalPoints = series
       .filter(s => selectedIds.has(s.seriesId))
@@ -135,7 +107,7 @@ export default function HistoryScreen() {
         },
       ]
     );
-  }, [db, selectedIds, series, clearSelection]);
+  }, [db, selectedIds, series, clearSelection, recordingSeriesId]);
 
   /** Merge selected series - show target picker */
   const handleMerge = useCallback(() => {
@@ -145,7 +117,11 @@ export default function HistoryScreen() {
       return;
     }
 
-    const options = selectedSeriesList.map(s => ({
+    const targetIds = getMergeTargetIds(
+      selectedSeriesList.map((s) => s.seriesId),
+      recordingSeriesId
+    );
+    const options = selectedSeriesList.filter((s) => targetIds.includes(s.seriesId)).map(s => ({
       text: s.name,
       onPress: () => {
         const otherIds = selectedSeriesList
@@ -172,10 +148,12 @@ export default function HistoryScreen() {
 
     Alert.alert(
       'Merge Into',
-      'Select the target series to merge into:',
+      targetIds.length === 1
+        ? 'The series that records keeps all points of the other series.'
+        : 'Select the series that keeps all points:',
       [...options, { text: 'Cancel', style: 'cancel' }]
     );
-  }, [db, selectedIds, series, clearSelection]);
+  }, [db, selectedIds, series, clearSelection, recordingSeriesId]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -268,7 +246,7 @@ export default function HistoryScreen() {
           <View style={styles.empty}>
             <Text style={styles.emptyTitle}>No tracking history</Text>
             <Text style={styles.emptyText}>
-              Start tracking from the Map tab to create your first series.
+              Start a recording on the Map tab to create your first series.
             </Text>
           </View>
         ) : (
@@ -276,7 +254,7 @@ export default function HistoryScreen() {
             data={series}
             keyExtractor={(item) => item.seriesId.toString()}
             renderItem={renderItem}
-            contentContainerStyle={styles.list}
+            contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + TAB_BAR_HEIGHT + 16 }]}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
           />
         )}
@@ -284,7 +262,7 @@ export default function HistoryScreen() {
 
       {/* Selection Action Bar */}
       {selectionMode && selectedIds.size > 0 && (
-        <View style={[styles.actionBar, { marginBottom: insets.bottom + 50 }]}>
+        <View style={[styles.actionBar, { marginBottom: insets.bottom + TAB_BAR_HEIGHT }]}>
           <TouchableOpacity
             style={[styles.actionBarButton, styles.deleteButton]}
             onPress={handleBatchDelete}
@@ -306,45 +284,6 @@ export default function HistoryScreen() {
         </View>
       )}
 
-      {/* Rename Modal */}
-      <Modal
-        visible={renameModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setRenameModalVisible(false)}
-      >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setRenameModalVisible(false)}
-        >
-          <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
-            <Text style={styles.modalTitle}>Rename Series</Text>
-            <TextInput
-              style={styles.input}
-              value={newName}
-              onChangeText={setNewName}
-              placeholder="Series name"
-              autoFocus
-            />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.modalButton}
-                onPress={() => setRenameModalVisible(false)}
-              >
-                <Text style={styles.modalButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonPrimary]}
-                onPress={handleSaveRename}
-              >
-                <Text style={[styles.modalButtonText, styles.modalButtonTextPrimary]}>
-                  Save
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Pressable>
-      </Modal>
       </View>
     </SafeAreaView>
   );
@@ -479,54 +418,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#666666',
     textAlign: 'center',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 24,
-    width: '85%',
-    maxWidth: 340,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1A1A1A',
-    marginBottom: 16,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 20,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-  },
-  modalButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginLeft: 12,
-  },
-  modalButtonPrimary: {
-    backgroundColor: '#4285F4',
-    borderRadius: 8,
-  },
-  modalButtonText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#666666',
-  },
-  modalButtonTextPrimary: {
-    color: '#FFFFFF',
   },
   /** Selection mode styles */
   selectionHeader: {

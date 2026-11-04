@@ -10,19 +10,24 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
-import { useDatabaseReady } from '../../src/contexts/DatabaseContext';
-import { useSeriesById } from '../../src/hooks/useSeries';
-import { useHeatmapPoints, calculateRegion } from '../../src/hooks/useHeatmapPoints';
+import { useDatabase } from '../../src/contexts/DatabaseContext';
+import { useTracking } from '../../src/contexts/TrackingContext';
+import { useLiveSeriesById } from '../../src/hooks/useLiveSeries';
+import { useLiveHeatmap } from '../../src/hooks/useLiveHeatmap';
+import { deleteSeries, updateSeriesName } from '../../src/db/queries/series';
+import { calculateRegion } from '../../src/lib/region';
+import { includesRecordingSeries } from '../../src/lib/tracking';
 import { HeatmapOverlay } from '../../src/components/map/HeatmapOverlay';
 
 export default function SeriesDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const isDbReady = useDatabaseReady();
+  const db = useDatabase();
+  const { recordingSeriesId } = useTracking();
 
   const seriesId = parseInt(id, 10);
-  const { series, stats, loading, rename, remove } = useSeriesById(seriesId);
-  const { points } = useHeatmapPoints([seriesId]);
+  const { series, stats, loading } = useLiveSeriesById(seriesId);
+  const { points } = useLiveHeatmap([seriesId]);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
@@ -37,12 +42,17 @@ export default function SeriesDetailScreen() {
 
   const handleSave = useCallback(() => {
     if (editName.trim()) {
-      rename(editName.trim());
+      updateSeriesName(db, seriesId, editName.trim());
       setIsEditing(false);
     }
-  }, [editName, rename]);
+  }, [db, seriesId, editName]);
 
   const handleDelete = useCallback(() => {
+    if (includesRecordingSeries([seriesId], recordingSeriesId)) {
+      Alert.alert('Series Is Recording', 'Stop the recording before you delete this series.');
+      return;
+    }
+
     Alert.alert(
       'Delete Series',
       `Are you sure you want to delete "${series?.name}"? This will permanently remove all ${series?.pointCount} location points.`,
@@ -52,13 +62,13 @@ export default function SeriesDetailScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            remove();
             router.back();
+            deleteSeries(db, seriesId);
           },
         },
       ]
     );
-  }, [series, remove, router]);
+  }, [db, seriesId, series, recordingSeriesId, router]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -72,7 +82,11 @@ export default function SeriesDetailScreen() {
     });
   };
 
-  if (!isDbReady || loading) {
+  const formatShortDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  if (loading) {
     return (
       <View style={styles.loading}>
         <Text>Loading...</Text>
@@ -168,17 +182,17 @@ export default function SeriesDetailScreen() {
           {stats?.minTimestamp && (
             <View style={styles.stat}>
               <Text style={styles.statValue}>
-                {formatDate(stats.minTimestamp).split(',')[0]}
+                {formatShortDate(stats.minTimestamp)}
               </Text>
-              <Text style={styles.statLabel}>Started</Text>
+              <Text style={styles.statLabel}>First Point</Text>
             </View>
           )}
           {stats?.maxTimestamp && (
             <View style={styles.stat}>
               <Text style={styles.statValue}>
-                {formatDate(stats.maxTimestamp).split(',')[0]}
+                {formatShortDate(stats.maxTimestamp)}
               </Text>
-              <Text style={styles.statLabel}>Last Updated</Text>
+              <Text style={styles.statLabel}>Last Point</Text>
             </View>
           )}
         </View>

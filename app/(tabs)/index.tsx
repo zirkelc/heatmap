@@ -1,24 +1,32 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity, Alert } from 'react-native';
 import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
-import { useDatabaseReady } from '../../src/contexts/DatabaseContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTracking } from '../../src/contexts/TrackingContext';
 import { useLiveHeatmap } from '../../src/hooks/useLiveHeatmap';
-import { calculateRegion } from '../../src/hooks/useHeatmapPoints';
+import { calculateRegion } from '../../src/lib/region';
+import { getCurrentLocation } from '../../src/services/location/tracking';
 import { HeatmapOverlay } from '../../src/components/map/HeatmapOverlay';
+import { SeriesFilterSheet } from '../../src/components/map/SeriesFilterSheet';
 import { TrackingButton } from '../../src/components/tracking/TrackingButton';
 import { SeriesPrompt } from '../../src/components/tracking/SeriesPrompt';
 
+/** Wide start region, used until the app knows the data or the user's location */
 const DEFAULT_REGION = {
-  latitude: 37.7749,
-  longitude: -122.4194,
-  latitudeDelta: 0.05,
-  longitudeDelta: 0.05,
+  latitude: 30,
+  longitude: 0,
+  latitudeDelta: 100,
+  longitudeDelta: 100,
 };
 
+const USER_REGION_DELTA = 0.02;
+
+/** Height of the native tab bar above the bottom safe area */
+const TAB_BAR_HEIGHT = 49;
+
 export default function MapScreen() {
-  const isDbReady = useDatabaseReady();
   const mapRef = useRef<MapView>(null);
+  const insets = useSafeAreaInsets();
 
   const {
     isTracking,
@@ -31,35 +39,64 @@ export default function MapScreen() {
 
   const [selectedSeriesIds, setSelectedSeriesIds] = useState<Array<number>>([]);
   const [showPrompt, setShowPrompt] = useState(false);
+  const [showFilter, setShowFilter] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  /** Update selected series when active series changes */
+  /** Show the series that records */
   useEffect(() => {
     if (activeSeries) {
       setSelectedSeriesIds([activeSeries.seriesId]);
     }
-  }, [activeSeries]);
+  }, [activeSeries?.seriesId]);
 
   /** Use live heatmap - auto-updates when database changes */
-  const { points } = useLiveHeatmap(
+  const { points, idsKey, updatedAt } = useLiveHeatmap(
     selectedSeriesIds.length > 0 ? selectedSeriesIds : 'all'
   );
 
-  /** Center map on heatmap points */
+  /**
+   * Fit the map to the points once after each filter change, when the data for the
+   * new filter arrives. New points during a recording do not move the map.
+   */
+  const fitRequest = useRef<{ after: Date | undefined } | null>(null);
   useEffect(() => {
-    if (points.length > 0 && mapRef.current) {
-      const region = calculateRegion(points);
-      if (region) {
-        mapRef.current.animateToRegion(region, 500);
-      }
+    fitRequest.current = { after: updatedAt };
+  }, [idsKey]);
+
+  useEffect(() => {
+    const request = fitRequest.current;
+    if (!request || request.after === updatedAt) {
+      return;
     }
-  }, [points]);
+    fitRequest.current = null;
+
+    const region = calculateRegion(points);
+    if (region) {
+      mapRef.current?.animateToRegion(region, 500);
+      return;
+    }
+
+    // No data for this filter: show the user's location if the app may read it
+    getCurrentLocation().then((location) => {
+      if (location) {
+        mapRef.current?.animateToRegion(
+          {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+            latitudeDelta: USER_REGION_DELTA,
+            longitudeDelta: USER_REGION_DELTA,
+          },
+          500
+        );
+      }
+    });
+  }, [updatedAt, points]);
 
   const handleTrackingPress = useCallback(() => {
     if (isTracking) {
       Alert.alert(
-        'Stop Tracking',
-        'Are you sure you want to stop tracking?',
+        'Stop Recording',
+        'Do you want to stop the recording?',
         [
           { text: 'Cancel', style: 'cancel' },
           {
@@ -82,9 +119,9 @@ export default function MapScreen() {
     setShowPrompt(false);
     setIsLoading(true);
 
-    const series = await startNewSeries();
-    if (!series) {
-      Alert.alert('Error', 'Failed to start tracking. Please check location permissions.');
+    const result = await startNewSeries();
+    if (result === 'failed') {
+      Alert.alert('Could Not Start Recording', 'Please try again.');
     }
 
     setIsLoading(false);
@@ -94,9 +131,9 @@ export default function MapScreen() {
     setShowPrompt(false);
     setIsLoading(true);
 
-    const success = await continueSeries(seriesId);
-    if (!success) {
-      Alert.alert('Error', 'Failed to continue tracking. Please check location permissions.');
+    const result = await continueSeries(seriesId);
+    if (result === 'failed') {
+      Alert.alert('Could Not Start Recording', 'Please try again.');
     }
 
     setIsLoading(false);
@@ -104,29 +141,23 @@ export default function MapScreen() {
 
   const handleSeriesFilter = useCallback(() => {
     if (allSeries.length === 0) {
-      Alert.alert('No Series', 'Start tracking to create your first series.');
+      Alert.alert('No Series', 'Start a recording to create your first series.');
       return;
     }
-
-    const options = [
-      { text: 'Show All', onPress: () => setSelectedSeriesIds([]) },
-      ...allSeries.slice(0, 5).map((s) => ({
-        text: s.name,
-        onPress: () => setSelectedSeriesIds([s.seriesId]),
-      })),
-      { text: 'Cancel', style: 'cancel' as const },
-    ];
-
-    Alert.alert('Filter Series', 'Select which series to display', options);
+    setShowFilter(true);
   }, [allSeries]);
 
-  if (!isDbReady) {
-    return (
-      <View style={styles.loading}>
-        <Text>Loading...</Text>
-      </View>
-    );
-  }
+  const handleFilterSelect = useCallback((seriesIds: Array<number>) => {
+    setSelectedSeriesIds(seriesIds);
+    setShowFilter(false);
+  }, []);
+
+  const filterLabel =
+    selectedSeriesIds.length === 0
+      ? 'All Series'
+      : selectedSeriesIds.length === 1
+        ? allSeries.find((s) => s.seriesId === selectedSeriesIds[0])?.name ?? 'Series'
+        : `${selectedSeriesIds.length} Series`;
 
   return (
     <View style={styles.container} collapsable={false}>
@@ -137,35 +168,36 @@ export default function MapScreen() {
         initialRegion={DEFAULT_REGION}
         showsUserLocation
         showsMyLocationButton
+        mapPadding={{ top: insets.top, right: 0, bottom: insets.bottom + TAB_BAR_HEIGHT, left: 0 }}
       >
         <HeatmapOverlay points={points} />
       </MapView>
 
-      {/* Series Filter Chip */}
-      <TouchableOpacity style={styles.filterChip} onPress={handleSeriesFilter}>
-        <Text style={styles.filterText}>
-          {selectedSeriesIds.length === 0
-            ? 'All Series'
-            : selectedSeriesIds.length === 1
-            ? allSeries.find((s) => s.seriesId === selectedSeriesIds[0])?.name ?? 'Series'
-            : `${selectedSeriesIds.length} Series`}
-        </Text>
-      </TouchableOpacity>
+      {/* Keeps the status bar readable over the map */}
+      <View style={[styles.statusBarBackdrop, { height: insets.top }]} pointerEvents="none" />
 
-      {/* Tracking Status */}
-      {isTracking && activeSeries && (
-        <View style={styles.statusBar}>
-          <View style={styles.recordingDot} />
-          <Text style={styles.statusText} numberOfLines={1}>
-            Recording: {activeSeries.name}
+      <View style={[styles.topOverlay, { top: insets.top + 8 }]} pointerEvents="box-none">
+        <TouchableOpacity style={styles.filterChip} onPress={handleSeriesFilter}>
+          <Text style={styles.filterText} numberOfLines={1}>
+            {filterLabel} ▾
           </Text>
-        </View>
-      )}
+        </TouchableOpacity>
+
+        {isTracking && activeSeries && (
+          <View style={styles.statusBar}>
+            <View style={styles.recordingDot} />
+            <Text style={styles.statusText} numberOfLines={1}>
+              Recording: {activeSeries.name}
+            </Text>
+          </View>
+        )}
+      </View>
 
       <TrackingButton
         isTracking={isTracking}
         isLoading={isLoading}
         onPress={handleTrackingPress}
+        bottom={insets.bottom + TAB_BAR_HEIGHT + 16}
       />
 
       <SeriesPrompt
@@ -174,6 +206,14 @@ export default function MapScreen() {
         onStartNew={handleStartNew}
         onContinue={handleContinue}
         onClose={() => setShowPrompt(false)}
+      />
+
+      <SeriesFilterSheet
+        visible={showFilter}
+        series={allSeries}
+        selectedIds={selectedSeriesIds}
+        onSelect={handleFilterSelect}
+        onClose={() => setShowFilter(false)}
       />
     </View>
   );
@@ -186,19 +226,26 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
-  loading: {
-    flex: 1,
-    justifyContent: 'center',
+  statusBarBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+  },
+  topOverlay: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
     alignItems: 'center',
+    gap: 8,
   },
   filterChip: {
-    position: 'absolute',
-    top: 60,
-    alignSelf: 'center',
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
+    maxWidth: '100%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
@@ -211,16 +258,13 @@ const styles = StyleSheet.create({
     color: '#333333',
   },
   statusBar: {
-    position: 'absolute',
-    top: 110,
-    alignSelf: 'center',
     backgroundColor: 'rgba(234, 67, 53, 0.9)',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    maxWidth: '80%',
+    maxWidth: '100%',
   },
   recordingDot: {
     width: 8,
@@ -230,6 +274,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   statusText: {
+    flexShrink: 1,
     fontSize: 13,
     fontWeight: '500',
     color: '#FFFFFF',

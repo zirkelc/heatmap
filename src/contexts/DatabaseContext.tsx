@@ -1,7 +1,7 @@
 import React, { createContext, useContext, type ReactNode } from 'react';
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
 import { Text, View, ActivityIndicator, StyleSheet } from 'react-native';
-import { getDatabase, getRawDatabase } from '../db/client';
+import { getDatabase } from '../db/client';
 import migrations from '../../drizzle/migrations';
 
 type DrizzleDB = ReturnType<typeof getDatabase>;
@@ -9,6 +9,21 @@ type DrizzleDB = ReturnType<typeof getDatabase>;
 interface DatabaseContextValue {
   db: DrizzleDB | null;
   isReady: boolean;
+}
+
+let demoDataChecked = false;
+
+/**
+ * Load demo data into an empty database when the build sets EXPO_PUBLIC_SEED_DEMO=1.
+ * Used for screenshots and manual tests only.
+ */
+function seedDemoDataIfEnabled(db: DrizzleDB): void {
+  if (process.env.EXPO_PUBLIC_SEED_DEMO !== '1' || demoDataChecked) {
+    return;
+  }
+  demoDataChecked = true;
+  const { seedDemoData } = require('../dev/demoData') as typeof import('../dev/demoData');
+  seedDemoData(db);
 }
 
 const DatabaseContext = createContext<DatabaseContextValue>({
@@ -36,6 +51,8 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
       </View>
     );
   }
+
+  seedDemoDataIfEnabled(db);
 
   return (
     <DatabaseContext.Provider value={{ db, isReady: true }}>

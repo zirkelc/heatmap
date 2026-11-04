@@ -1,0 +1,1 @@
+location,tracker,gps,map,heat map,walk,run,travel,history,places,visited,city,explore,route,trip

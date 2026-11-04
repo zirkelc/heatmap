@@ -1,8 +1,6 @@
 import { eq, inArray } from 'drizzle-orm';
 import { settings } from '../schema';
-import type { getDatabase } from '../client';
-
-type DB = ReturnType<typeof getDatabase>;
+import type { DB } from '../types';
 
 export interface TrackingSettings {
   timeInterval: number;

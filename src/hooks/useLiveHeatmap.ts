@@ -1,24 +1,39 @@
 import { useMemo } from 'react';
-import { useLiveAllLocations } from './useLiveLocations';
-import type { HeatmapPoint } from './useHeatmapPoints';
+import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { inArray } from 'drizzle-orm';
+import { useDatabase } from '../contexts/DatabaseContext';
+import { locations } from '../db/schema';
+
+export interface HeatmapPoint {
+  latitude: number;
+  longitude: number;
+  weight: number;
+}
 
 /**
- * Live query hook for heatmap points with filtering by series IDs.
+ * Live heatmap points of the given series, or of all series.
+ * Updates when location points are added or removed.
  */
-export function useLiveHeatmap(selectedSeriesIds: Array<number> | 'all') {
-  const { locations, loading } = useLiveAllLocations();
+export function useLiveHeatmap(seriesIds: Array<number> | 'all') {
+  const db = useDatabase();
+  const idsKey = seriesIds === 'all' ? 'all' : seriesIds.join(',');
 
-  const points = useMemo<Array<HeatmapPoint>>(() => {
-    const filtered = selectedSeriesIds === 'all'
-      ? locations
-      : locations.filter(loc => selectedSeriesIds.includes(loc.seriesId));
+  const { data, updatedAt } = useLiveQuery(
+    db
+      .select({
+        latitude: locations.latitude,
+        longitude: locations.longitude,
+        weight: locations.weight,
+      })
+      .from(locations)
+      .where(seriesIds === 'all' ? undefined : inArray(locations.seriesId, seriesIds)),
+    [db, idsKey]
+  );
 
-    return filtered.map(loc => ({
-      latitude: loc.latitude,
-      longitude: loc.longitude,
-      weight: loc.weight ?? 1.0,
-    }));
-  }, [locations, selectedSeriesIds]);
+  const points = useMemo<Array<HeatmapPoint>>(
+    () => data.map((point) => ({ ...point, weight: point.weight ?? 1 })),
+    [data]
+  );
 
-  return { points, loading };
+  return { points, loading: updatedAt === undefined, idsKey, updatedAt };
 }

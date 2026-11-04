@@ -4,14 +4,14 @@ Status on 2026-11-04: the "Must do" and most "Should do" items are done (not com
 
 ## 1. Decisions (from Chris)
 
-- [ ] **App name.** "Heatmap" is not usable: "HeatMap: Habit Tracker", "Habit Heatmap" and "HeatMap: Live Stocks & Futures" exist, and "Footprints — Walking Heatmap" exists too. Working candidate in `fastlane/metadata/en-US/name.txt`: "Heatmap: Places I've Been". Other options: "Wander: My Location Heatmap", "Heat Trails: Location Heatmap". Only App Store Connect can confirm that a name is free. The name under the icon on the home screen stays "Heatmap".
-- [ ] **Icon.** Chris rejected the first candidate in `assets/icon.png`. Six new concepts are rendered for a decision: A pin on a heat glow, B heat footprints, C light street map with a heat trail, D contour bands, E route into a hot spot, F dot matrix. The chosen concept goes into `scripts/generate-icon.swift`.
+- [x] **App name.** "Heatmap: Where I've Been" (`fastlane/metadata/en-US/name.txt`). The name under the icon on the home screen stays "Heatmap". App Store Connect confirms that the name is free when we create the app record.
+- [x] **Icon.** Dot matrix with a heat walk, made by `scripts/generate-icon.swift`.
 - [x] **iPad.** Not supported in 1.0 (`supportsTablet: false`). No iPad screenshots are necessary.
 - [ ] **Price.** Free or paid. Paid needs the Paid Apps agreement and tax and bank data.
 - [ ] **Category.** Draft: primary "Travel", secondary "Navigation".
 - [ ] **Countries and EU trader status.** For the EU, Apple requires the DSA trader status. A trader's address, phone and email show on the App Store page.
 - [ ] **Contact email** for the privacy policy and the support page (both are public).
-- [ ] **Where the privacy policy and support pages go.** This repo is private, and the Google Maps iOS key is in its history since the first commit. Recommendation: a small separate public repo (for example `zirkelc/heatmap-app`) with the two pages, GitHub Pages turned on, and GitHub Issues as the support channel. Then no email address must be public. Drafts: `docs/privacy-policy.md`, `docs/support.md`.
+- [ ] **Where the privacy policy and support pages go.** Plan: make this repo public after the Google Maps key is replaced, and link the pages on GitHub. The key is no longer in `app.json`: `app.config.ts` reads `GOOGLE_MAPS_IOS_API_KEY` from `.env.local` (local, ignored by git) or from the EAS environment variable (sensitive) for EAS builds. Drafts: `docs/privacy-policy.md`, `docs/support.md`.
 - [ ] **Android.** In scope for 1.0 or not. `app.json` still has the Android Maps key placeholder and the template Android icons.
 
 ## 2. Work to finish the app
@@ -41,7 +41,7 @@ Status on 2026-11-04: the "Must do" and most "Should do" items are done (not com
 
 ### Open
 
-- [ ] **Google Maps API key.** Restrict the iOS key in Google Cloud Console to the bundle ID `dev.zirkelc.heatmap` and to the Maps SDK for iOS. Only Chris can do this.
+- [ ] **Google Maps API key.** Make a new iOS key, restricted to the bundle ID `dev.zirkelc.heatmap` and to the Maps SDK for iOS. Store it in `.env.local` and as the EAS environment variable `GOOGLE_MAPS_IOS_API_KEY` (production, visibility sensitive). Then delete the old key, because it is in the git history.
 - [ ] **Real device test** of a Release build (or the TestFlight build): grant "While Using", lock the phone for 30 minutes while you walk, open the app again, stop. Also: deny the permission, then start again (the "Open Settings" alert must show).
 - [ ] **Expo SDK.** SDK 54 builds with Xcode 27.2 locally. EAS chooses its own Xcode image. If Apple requires a newer SDK at upload time, upgrade then.
 

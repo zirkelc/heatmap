@@ -6,7 +6,7 @@ Write to <CONTACT EMAIL>. Please tell me your iPhone model, your iOS version and
 
 ## Frequent questions
 
-**The app records no points in the background.** Check that the app has the location permission (Settings > Privacy & Security > Location Services > <APP NAME>: "While Using the App" or "Always"). If you close the app from the app switcher, iOS stops the recording.
+**The app records no points in the background.** Check that the app has the location permission (Settings > Privacy & Security > Location Services > Heatmap: "While Using the App" or "Always"). If you close the app from the app switcher, iOS stops the recording.
 
 **The points are far apart.** iOS sends fewer location updates in the background to save battery. In the app settings, you can set a shorter time interval and a shorter distance interval.
 

@@ -2,7 +2,7 @@
 
 Last updated: <DATE>
 
-This policy is about the iOS app "<APP NAME>" (the "app") by Chris Cook ("I").
+This policy is about the iOS app "Heatmap: Where I've Been" (the "app") by Chris Cook ("I").
 
 ## Summary
 

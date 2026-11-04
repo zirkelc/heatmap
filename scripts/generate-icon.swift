@@ -1,5 +1,6 @@
-// Draws the app icon and the splash image.
-// Usage: swift scripts/generate-icon.swift <output directory>
+// Draws the app icon and the splash image: a dot matrix on a dark background, where the
+// dots along a walk grow and change color with the heat.
+// Usage: swiftc -O scripts/generate-icon.swift -o /tmp/generate-icon && /tmp/generate-icon assets
 // Writes icon.png (1024x1024, no alpha) and splash-icon.png (1024x1024, transparent margin).
 
 import CoreGraphics
@@ -11,15 +12,27 @@ let size = 1024
 let outputDirectory = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "assets"
 
 struct RGB { var r: Double; var g: Double; var b: Double }
+typealias Point = (Double, Double)
 
 func hex(_ value: UInt32) -> RGB {
   RGB(r: Double((value >> 16) & 0xFF) / 255, g: Double((value >> 8) & 0xFF) / 255, b: Double(value & 0xFF) / 255)
 }
+func clamp(_ x: Double) -> Double { max(0, min(1, x)) }
+func mix(_ a: RGB, _ b: RGB, _ t: Double) -> RGB {
+  let t = clamp(t)
+  return RGB(r: a.r + (b.r - a.r) * t, g: a.g + (b.g - a.g) * t, b: a.b + (b.b - a.b) * t)
+}
+func smoothstep(_ e0: Double, _ e1: Double, _ x: Double) -> Double {
+  let t = clamp((x - e0) / (e1 - e0))
+  return t * t * (3 - 2 * t)
+}
+func gauss(_ p: Point, _ c: Point, _ sigma: Double) -> Double {
+  let dx = p.0 - c.0, dy = p.1 - c.1
+  return exp(-(dx * dx + dy * dy) / (2 * sigma * sigma))
+}
 
-let background = hex(0x0E1A2B)
-let street = hex(0x1C3048)
-let mainStreet = hex(0x24405F)
-let river = hex(0x15314F)
+let background = hex(0x101722)
+let coldDot = hex(0x2A3647)
 
 // Same gradient as the heatmap in the app
 let gradient: [(Double, RGB)] = [
@@ -30,80 +43,52 @@ let gradient: [(Double, RGB)] = [
   (1.00, hex(0xE50000)),
 ]
 
-func color(at value: Double) -> RGB {
-  for i in 0..<(gradient.count - 1) {
+func heatColor(_ value: Double) -> RGB {
+  for i in 0..<(gradient.count - 1) where value <= gradient[i + 1].0 {
     let (p0, c0) = gradient[i]
     let (p1, c1) = gradient[i + 1]
-    if value <= p1 {
-      let t = max(0, (value - p0) / (p1 - p0))
-      return RGB(r: c0.r + (c1.r - c0.r) * t, g: c0.g + (c1.g - c0.g) * t, b: c0.b + (c1.b - c0.b) * t)
-    }
+    return mix(c0, c1, (value - p0) / (p1 - p0))
   }
   return gradient.last!.1
 }
 
-func mix(_ a: RGB, _ b: RGB, _ t: Double) -> RGB {
-  RGB(r: a.r + (b.r - a.r) * t, g: a.g + (b.g - a.g) * t, b: a.b + (b.b - a.b) * t)
-}
-
-/// Distance from point p to the segment a-b
-func distance(_ p: (Double, Double), _ a: (Double, Double), _ b: (Double, Double)) -> Double {
-  let dx = b.0 - a.0, dy = b.1 - a.1
-  let t = max(0, min(1, ((p.0 - a.0) * dx + (p.1 - a.1) * dy) / (dx * dx + dy * dy)))
-  let x = a.0 + t * dx - p.0, y = a.1 + t * dy - p.1
-  return (x * x + y * y).squareRoot()
-}
-
-// Streets in unit coordinates (0...1), with a line width in pixels
-let streets: [((Double, Double), (Double, Double), Double, RGB)] = [
-  ((-0.1, 0.30), (1.1, 0.22), 22, mainStreet),
-  ((-0.1, 0.74), (1.1, 0.80), 22, mainStreet),
-  ((0.28, -0.1), (0.20, 1.1), 22, mainStreet),
-  ((0.70, -0.1), (0.78, 1.1), 22, mainStreet),
-  ((-0.1, 0.52), (1.1, 0.50), 10, street),
-  ((0.49, -0.1), (0.50, 1.1), 10, street),
-  ((-0.1, 0.10), (0.6, -0.1), 10, street),
-  ((0.05, 1.1), (1.1, 0.05), 10, street),
-  ((-0.1, 0.92), (1.1, 0.96), 10, street),
-  ((0.92, -0.1), (0.95, 1.1), 10, street),
-  ((0.07, -0.1), (0.04, 1.1), 10, street),
-]
-
-// River as a polyline
-let riverLine: [(Double, Double)] = [(-0.1, 0.62), (0.2, 0.66), (0.45, 0.60), (0.7, 0.68), (1.1, 0.64)]
-
-// Heat: a walk from bottom left to top right, with two places where it stays longer
-let walk: [(Double, Double)] = [
-  (0.16, 0.84), (0.20, 0.76), (0.27, 0.66), (0.37, 0.58), (0.47, 0.53),
-  (0.57, 0.50), (0.64, 0.42), (0.68, 0.33), (0.76, 0.26), (0.84, 0.18),
-]
-let hotSpots: [((Double, Double), Double)] = [((0.47, 0.53), 2.2), ((0.74, 0.28), 1.1), ((0.24, 0.72), 0.6)]
-
-var heatSources: [((Double, Double), Double)] = []
-for i in 0..<(walk.count - 1) {
-  let steps = 14
-  for s in 0..<steps {
-    let t = Double(s) / Double(steps)
-    let p = (walk[i].0 + (walk[i + 1].0 - walk[i].0) * t, walk[i].1 + (walk[i + 1].1 - walk[i].1) * t)
-    heatSources.append((p, 0.07))
-  }
-}
-heatSources.append(contentsOf: hotSpots)
-
-let sigma = 0.06
-var heat = [Double](repeating: 0, count: size * size)
-var maxHeat = 0.0
-for y in 0..<size {
-  for x in 0..<size {
-    let p = (Double(x) / Double(size), Double(y) / Double(size))
-    var sum = 0.0
-    for (c, w) in heatSources {
-      let dx = p.0 - c.0, dy = p.1 - c.1
-      sum += w * exp(-(dx * dx + dy * dy) / (2 * sigma * sigma))
+/// Samples a smooth Catmull-Rom curve through the control points
+func curve(_ points: [Point], _ steps: Int) -> [Point] {
+  var result: [Point] = []
+  for i in 0..<(points.count - 1) {
+    let p0 = points[max(0, i - 1)], p1 = points[i], p2 = points[i + 1], p3 = points[min(points.count - 1, i + 2)]
+    for s in 0..<steps {
+      let t = Double(s) / Double(steps), t2 = t * t, t3 = t2 * t
+      func c(_ a: Double, _ b: Double, _ c: Double, _ d: Double) -> Double {
+        0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3)
+      }
+      result.append((c(p0.0, p1.0, p2.0, p3.0), c(p0.1, p1.1, p2.1, p3.1)))
     }
-    heat[y * size + x] = sum
-    maxHeat = max(maxHeat, sum)
   }
+  result.append(points.last!)
+  return result
+}
+
+// A walk from bottom left to top right, with one place where it stays longer
+let walk = curve([(0.12, 0.88), (0.25, 0.70), (0.45, 0.56), (0.58, 0.47), (0.72, 0.30), (0.88, 0.14)], 20)
+let hotSpot: Point = (0.52, 0.51)
+
+let gridSize = 9.0
+
+/// Color of the artwork at a point in unit coordinates (0...1)
+func artwork(_ p: Point) -> RGB {
+  let cell = 1 / gridSize
+  let center: Point = ((floor(p.0 / cell) + 0.5) * cell, (floor(p.1 / cell) + 0.5) * cell)
+  var field = gauss(center, hotSpot, 0.09) * 1.2
+  for q in walk { field += gauss(center, q, 0.07) * 0.06 }
+  let heat = clamp(field / 1.6)
+
+  let radius = cell * (0.14 + 0.32 * smoothstep(0, 0.7, heat))
+  let dx = p.0 - center.0, dy = p.1 - center.1
+  let distance = (dx * dx + dy * dy).squareRoot() - radius
+  let dotColor = heat < 0.08 ? coldDot : heatColor(clamp((heat - 0.08) / 0.75))
+  // Anti-aliased edge of about one pixel
+  return mix(background, dotColor, clamp(0.5 - distance * Double(size)))
 }
 
 func render(transparentMargin: Double) -> CGImage {
@@ -112,49 +97,35 @@ func render(transparentMargin: Double) -> CGImage {
   let offset = Double(size) * transparentMargin
   let cornerRadius = inner * 0.2237
 
-  for y in 0..<size {
-    for x in 0..<size {
-      // Position inside the artwork square
-      let ax = (Double(x) + 0.5 - offset) / inner
-      let ay = (Double(y) + 0.5 - offset) / inner
-      var alpha = 1.0
-      if transparentMargin > 0 {
-        // Rounded square mask with a soft edge
-        let px = ax * inner, py = ay * inner
-        let qx = max(cornerRadius - px, 0, px - (inner - cornerRadius))
-        let qy = max(cornerRadius - py, 0, py - (inner - cornerRadius))
-        let outside = (qx * qx + qy * qy).squareRoot() - cornerRadius
-        alpha = max(0, min(1, 0.5 - outside))
-        if px < 0 || py < 0 || px > inner || py > inner { alpha = 0 }
-      }
-      let index = (y * size + x) * 4
-      if alpha == 0 { continue }
+  pixels.withUnsafeMutableBufferPointer { buffer in
+    DispatchQueue.concurrentPerform(iterations: size) { y in
+      for x in 0..<size {
+        let px = Double(x) + 0.5 - offset, py = Double(y) + 0.5 - offset
+        var alpha = 1.0
+        if transparentMargin > 0 {
+          // Rounded square mask with a soft edge
+          let qx = max(cornerRadius - px, 0, px - (inner - cornerRadius))
+          let qy = max(cornerRadius - py, 0, py - (inner - cornerRadius))
+          alpha = clamp(0.5 - ((qx * qx + qy * qy).squareRoot() - cornerRadius))
+          if px < 0 || py < 0 || px > inner || py > inner { alpha = 0 }
+        }
+        if alpha == 0 { continue }
 
-      let sx = min(size - 1, max(0, Int(ax * Double(size))))
-      let sy = min(size - 1, max(0, Int(ay * Double(size))))
-      let p = (ax, ay)
+        // 2x2 supersampling
+        var c = RGB(r: 0, g: 0, b: 0)
+        for sy in [0.25, 0.75] {
+          for sx in [0.25, 0.75] {
+            let sample = artwork(((px - 0.5 + sx) / inner, (py - 0.5 + sy) / inner))
+            c.r += sample.r / 4; c.g += sample.g / 4; c.b += sample.b / 4
+          }
+        }
 
-      var c = background
-      var riverDistance = Double.greatestFiniteMagnitude
-      for i in 0..<(riverLine.count - 1) {
-        riverDistance = min(riverDistance, distance(p, riverLine[i], riverLine[i + 1]) * 1024)
+        let index = (y * size + x) * 4
+        buffer[index] = UInt8(clamp(c.r * alpha) * 255)
+        buffer[index + 1] = UInt8(clamp(c.g * alpha) * 255)
+        buffer[index + 2] = UInt8(clamp(c.b * alpha) * 255)
+        buffer[index + 3] = UInt8(alpha * 255)
       }
-      if riverDistance < 30 { c = mix(c, river, min(1, (30 - riverDistance) / 2)) }
-      for (a, b, width, streetColor) in streets {
-        let d = distance(p, a, b) * 1024
-        if d < width / 2 + 1 { c = mix(c, streetColor, min(1, width / 2 + 1 - d)) }
-      }
-
-      let value = pow(heat[sy * size + sx] / maxHeat, 1.7)
-      if value > 0.01 {
-        let heatAlpha = min(1, (value - 0.01) / 0.1) * 0.92
-        c = mix(c, color(at: value), heatAlpha)
-      }
-
-      pixels[index] = UInt8(max(0, min(255, c.r * 255 * alpha)))
-      pixels[index + 1] = UInt8(max(0, min(255, c.g * 255 * alpha)))
-      pixels[index + 2] = UInt8(max(0, min(255, c.b * 255 * alpha)))
-      pixels[index + 3] = UInt8(alpha * 255)
     }
   }
 

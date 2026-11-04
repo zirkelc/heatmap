@@ -18,9 +18,6 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
-      "config": {
-        "googleMapsApiKey": "AIzaSyAQqAF6_3TAMMsKgMxsaI-Om2u3x-JarFQ"
-      },
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": [
           {

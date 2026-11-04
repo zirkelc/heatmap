@@ -21,7 +21,11 @@
   "submit": {
     "production": {
       "ios": {
-        "appleTeamId": "D568Q9VY3L"
+        "appleTeamId": "D568Q9VY3L",
+        "ascAppId": "6830774275",
+        "ascApiKeyPath": "/Users/zirkelc/.appstoreconnect/private_keys/AuthKey_7475LHDY74.p8",
+        "ascApiKeyId": "7475LHDY74",
+        "ascApiKeyIssuerId": "e014f779-1183-4a6b-a68b-93769aac2358"
       }
     }
   }

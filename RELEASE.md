@@ -41,7 +41,7 @@ Status on 2026-11-04: the "Must do" and most "Should do" items are done (not com
 
 ### Open
 
-- [ ] **Google Maps API key.** Make a new iOS key, restricted to the bundle ID `dev.zirkelc.heatmap` and to the Maps SDK for iOS. Store it in `.env.local` and as the EAS environment variable `GOOGLE_MAPS_IOS_API_KEY` (production, visibility sensitive). Then delete the old key, because it is in the git history.
+- [x] **Google Maps API key.** New key "Heatmap iOS (App Store)" in Google Cloud project `heatmap-449913`, restricted to `dev.zirkelc.heatmap` and to the Maps SDK for iOS. It is in `.env.local` and works on the simulator. Open: set it as the EAS environment variable `GOOGLE_MAPS_IOS_API_KEY` (production, sensitive), and delete the old key "Maps Platform API Key", which is in the git history.
 - [ ] **Real device test** of a Release build (or the TestFlight build): grant "While Using", lock the phone for 30 minutes while you walk, open the app again, stop. Also: deny the permission, then start again (the "Open Settings" alert must show).
 - [ ] **Expo SDK.** SDK 54 builds with Xcode 27.2 locally. EAS chooses its own Xcode image. If Apple requires a newer SDK at upload time, upgrade then.
 
@@ -71,15 +71,15 @@ Drafts are in `fastlane/metadata/` (the layout of `fastlane deliver`).
 
 Known: the Apple Team ID is `D568Q9VY3L` (from the Typoless project; set in `eas.json`). Typoless ships outside the App Store, so there is no App Store Connect API key on this Mac to reuse.
 
-- [ ] **App Store Connect API key.** App Store Connect > Users and Access > Integrations > App Store Connect API > Team Keys > Generate API Key. Only the Account Holder or an Admin can do this. The first time, the Account Holder must request API access. Role "Admin" (so that EAS can also create the certificate and the provisioning profile). Download the `.p8` at once (only one download is possible), and note the Key ID and the Issuer ID. Store the `.p8` outside the repo, for example `~/.appstoreconnect/private_keys/`.
-- [ ] **App record** in App Store Connect: Apps > "+" > New App, platform iOS, the final name, bundle ID `dev.zirkelc.heatmap`, SKU for example `heatmap`. The API cannot create it. If the bundle ID is not in the list, register it first in the Apple Developer portal (Identifiers), or let the first `eas build` register it.
+- [x] **App Store Connect API key.** Team key "EAS", role Admin, Key ID `7475LHDY74`, Issuer ID `e014f779-1183-4a6b-a68b-93769aac2358`. The `.p8` is in `~/.appstoreconnect/private_keys/` (keep a backup in the password manager). `eas.json` uses it for `eas submit`. For `eas build`, set `EXPO_ASC_API_KEY_PATH`, `EXPO_ASC_KEY_ID`, `EXPO_ASC_ISSUER_ID` and `EXPO_APPLE_TEAM_ID`.
+- [x] **App record.** "Heatmap: Where I've Been", Apple ID `6830774275`, SKU `heatmap`, primary language English (U.S.).
 - [ ] **Expo access token** (`EXPO_TOKEN`) for the account that owns project `597ee4bf-187c-4d9c-a3ab-284d2fc7a34d`: expo.dev > Account settings > Access tokens. There is no Expo login on this Mac now.
 - [ ] **Web-only steps:** App Privacy answers and DSA trader status have no API. Chris does them in the browser, or logs in to App Store Connect in a browser that the agent can control.
 
 ## 5. Submission runbook
 
 1. Commit the work. Test a Release build on a real iPhone (see "Open").
-2. Add `ascAppId`, `ascApiKeyPath`, `ascApiKeyId` and `ascApiKeyIssuerId` to `submit.production.ios` in `eas.json`.
+2. Done: `submit.production.ios` in `eas.json` has `ascAppId` and the API key.
 3. Build: `eas build --platform ios --profile production`. EAS manages the distribution certificate and the provisioning profile with the API key.
 4. Upload: `eas submit --platform ios --profile production --latest`. Then read the email from Apple for privacy manifest warnings.
 5. TestFlight: install the build on the iPhone and do a last check.

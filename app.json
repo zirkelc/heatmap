@@ -13,7 +13,7 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "dev.zirkelc.heatmap",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false

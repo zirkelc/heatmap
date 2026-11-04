@@ -5,13 +5,13 @@ Status on 2026-11-04: the "Must do" and most "Should do" items are done (not com
 ## 1. Decisions (from Chris)
 
 - [ ] **App name.** "Heatmap" is not usable: "HeatMap: Habit Tracker", "Habit Heatmap" and "HeatMap: Live Stocks & Futures" exist, and "Footprints — Walking Heatmap" exists too. Working candidate in `fastlane/metadata/en-US/name.txt`: "Heatmap: Places I've Been". Other options: "Wander: My Location Heatmap", "Heat Trails: Location Heatmap". Only App Store Connect can confirm that a name is free. The name under the icon on the home screen stays "Heatmap".
-- [ ] **Icon.** A candidate icon is in `assets/icon.png` (made by `scripts/generate-icon.swift`). Approve it or give a different one.
-- [ ] **iPad.** `supportsTablet` is still `true`. Then Apple reviews the app on iPad and we must supply iPad screenshots. Recommendation: set it to `false` for 1.0.
+- [ ] **Icon.** Chris rejected the first candidate in `assets/icon.png`. Six new concepts are rendered for a decision: A pin on a heat glow, B heat footprints, C light street map with a heat trail, D contour bands, E route into a hot spot, F dot matrix. The chosen concept goes into `scripts/generate-icon.swift`.
+- [x] **iPad.** Not supported in 1.0 (`supportsTablet: false`). No iPad screenshots are necessary.
 - [ ] **Price.** Free or paid. Paid needs the Paid Apps agreement and tax and bank data.
 - [ ] **Category.** Draft: primary "Travel", secondary "Navigation".
 - [ ] **Countries and EU trader status.** For the EU, Apple requires the DSA trader status. A trader's address, phone and email show on the App Store page.
 - [ ] **Contact email** for the privacy policy and the support page (both are public).
-- [ ] **Where the privacy policy and support pages go.** The repo is private, so GitHub Pages needs a paid plan. Options: a public Notion page, a gist, or a page on an existing domain. Drafts: `docs/privacy-policy.md`, `docs/support.md`.
+- [ ] **Where the privacy policy and support pages go.** This repo is private, and the Google Maps iOS key is in its history since the first commit. Recommendation: a small separate public repo (for example `zirkelc/heatmap-app`) with the two pages, GitHub Pages turned on, and GitHub Issues as the support channel. Then no email address must be public. Drafts: `docs/privacy-policy.md`, `docs/support.md`.
 - [ ] **Android.** In scope for 1.0 or not. `app.json` still has the Android Maps key placeholder and the template Android icons.
 
 ## 2. Work to finish the app

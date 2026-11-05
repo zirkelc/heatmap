@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Last updated: <DATE>
+Last updated: November 5, 2026
 
 This policy is about the iOS app "Heatmap: Where I've Been" (the "app") by Chris Cook ("I").
 
@@ -27,7 +27,7 @@ The app shows maps with the Google Maps SDK for iOS. To load the map, the SDK se
 
 ## Other data
 
-The app does not use analytics, advertising or tracking. The app does not collect your name, email address or contacts.
+Apart from the Google Maps SDK, the app has no analytics, advertising or tracking. The app does not collect your name, email address or contacts.
 
 ## Children
 
@@ -39,4 +39,4 @@ If this policy changes, I will update this page and the date above.
 
 ## Contact
 
-<CONTACT EMAIL>
+Open an issue at https://github.com/zirkelc/heatmap/issues.

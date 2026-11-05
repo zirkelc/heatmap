@@ -2,7 +2,7 @@
 
 ## Questions and problems
 
-Write to <CONTACT EMAIL>. Please tell me your iPhone model, your iOS version and what happened.
+Open an issue at https://github.com/zirkelc/heatmap/issues. Please tell me your iPhone model, your iOS version and what happened.
 
 ## Frequent questions
 

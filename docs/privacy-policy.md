@@ -2,7 +2,7 @@
 
 Last updated: November 5, 2026
 
-This policy is about the iOS app "Heatmap: Where I've Been" (the "app") by Chris Cook ("I").
+This policy is about the iOS app "Heatmap: See What You Missed" (the "app") by Chris Cook ("I").
 
 ## Summary
 

@@ -1,6 +1,8 @@
-See the places where you spend your time.
+On a weekend city trip or a vacation in another country, you walk and drive to many places. You see a lot. But what did you not see? Which streets did you never walk? Which parts of the city haven't you seen yet?
 
-Start a recording when you go out. The app saves your location while the recording runs, also when the app is in the background or the screen is locked. On the map, the places where you were most often show as a heatmap: green where you passed, red where you stayed.
+Heatmap records where you go and shows it on the map. Your hotspots, the places where you spent the most time, show in red. Your blind spots, the streets and areas where you never went, stay empty. So you know where to go next to see something new.
+
+Start a recording when you go out. The app saves your location while the recording runs, also when the app is in the background or the screen is locked. Each trip is a series. See one trip, or all of them together.
 
 RECORD
 • Start and stop a recording with one tap.

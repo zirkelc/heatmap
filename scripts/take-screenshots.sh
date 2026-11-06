@@ -17,10 +17,10 @@ OUTPUT_DIR="${OUTPUT_DIR:-fastlane/screenshots/en-US}"
 BUNDLE_ID="dev.zirkelc.heatmap"
 DERIVED_DATA="ios/build"
 APP_PATH="$DERIVED_DATA/Build/Products/Release-iphonesimulator/Heatmap.app"
-# Location of the simulator: central Berlin, where the demo data is
-LOCATION="52.5300,13.4100"
+# Location of the simulator: Montmartre in Paris, where the demo trip ends
+LOCATION="48.8858,2.3418"
 # Time for the app to start, load the map tiles and navigate
-SETTLE_SECONDS=10
+SETTLE_SECONDS=18
 
 DEVICE_ID=$(xcrun simctl list devices available -j | node -e '
   const name = process.argv[1];
@@ -83,7 +83,6 @@ shoot "01-map"
 shoot "02-recording" -demoRecord 1
 shoot "03-history" -demoRoute history
 shoot "04-series" -demoRoute series
-shoot "05-settings" -demoRoute settings
 
 xcrun simctl terminate "$DEVICE_ID" "$BUNDLE_ID" 2>/dev/null || true
 xcrun simctl status_bar "$DEVICE_ID" clear

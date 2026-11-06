@@ -1,0 +1,15 @@
+diff --git a/ios/AirGoogleMaps/AIRGoogleMapHeatmap.m b/ios/AirGoogleMaps/AIRGoogleMapHeatmap.m
+index ac6db9764b194b0da606ce615d8749be3cce85d7..274822238612019db48f468f76701eb4a46ff8ec 100644
+--- a/ios/AirGoogleMaps/AIRGoogleMapHeatmap.m
++++ b/ios/AirGoogleMaps/AIRGoogleMapHeatmap.m
+@@ -15,6 +15,10 @@
+ {
+   if (self = [super init]) {
+     _heatmap = [[GMUHeatmapTileLayer alloc] init];
++    // The colors are relative to the densest area at each zoom level. The default computes it only
++    // up to zoom 10 (areas of a few kilometers), so at street level all points fade. Compute it
++    // up to zoom 16 (areas of about 30 meters), so the colors stay strong when you zoom in.
++    _heatmap.maximumZoomIntensity = 16;
+   }
+   return self;
+ }

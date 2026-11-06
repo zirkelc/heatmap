@@ -6,6 +6,7 @@ import * as TaskManager from 'expo-task-manager';
 import type * as Location from 'expo-location';
 import { getDatabase } from '../db/client';
 import { recordLocations } from '../db/queries/locations';
+import { getTrackingSettings } from '../db/queries/settings';
 
 export const LOCATION_TASK_NAME = 'background-location-task';
 
@@ -27,15 +28,18 @@ TaskManager.defineTask<{ locations?: Array<Location.LocationObject> }>(
     }
 
     try {
+      // The settings are read for each batch, so a change also applies to a recording that runs
+      const db = getDatabase();
       const result = recordLocations(
-        getDatabase(),
+        db,
         locations.map((location) => ({
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
           altitude: location.coords.altitude,
           accuracy: location.coords.accuracy,
           timestamp: location.timestamp,
-        }))
+        })),
+        getTrackingSettings(db)
       );
 
       if (!result) {

@@ -8,9 +8,29 @@ export interface TrackingSettings {
 }
 
 export const DEFAULT_SETTINGS: TrackingSettings = {
-  timeInterval: 60_000,
-  distanceInterval: 50,
+  timeInterval: 30_000,
+  distanceInterval: 20,
 };
+
+/** The time intervals (in milliseconds) that the user can select */
+export const TIME_INTERVAL_OPTIONS = [5_000, 10_000, 15_000, 30_000, 60_000, 120_000, 300_000];
+
+/** The distance intervals (in meters) that the user can select */
+export const DISTANCE_INTERVAL_OPTIONS = [5, 10, 20, 30, 50, 100, 200, 500];
+
+/**
+ * Index of the option that is nearest to the value. A saved value that is not an option
+ * (for example from an older version of the app) shows as the nearest option.
+ */
+export function nearestOptionIndex(options: Array<number>, value: number): number {
+  let nearest = 0;
+  for (let i = 1; i < options.length; i++) {
+    if (Math.abs(options[i] - value) < Math.abs(options[nearest] - value)) {
+      nearest = i;
+    }
+  }
+  return nearest;
+}
 
 /**
  * Get a setting value by key.

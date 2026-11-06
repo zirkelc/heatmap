@@ -25,7 +25,8 @@ function addPoints(seriesId: number, amount: number): void {
   setActiveSeries(db, seriesId);
   recordLocations(
     db,
-    Array.from({ length: amount }, (_, i) => ({ ...POINT, timestamp: POINT.timestamp + i * 1_000 }))
+    Array.from({ length: amount }, (_, i) => ({ ...POINT, timestamp: POINT.timestamp + i * 1_000 })),
+    { timeInterval: 0, distanceInterval: 0 }
   );
 }
 

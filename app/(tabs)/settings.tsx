@@ -3,55 +3,45 @@ import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
 import { useSettings } from '../../src/contexts/SettingsContext';
+import {
+  DISTANCE_INTERVAL_OPTIONS,
+  TIME_INTERVAL_OPTIONS,
+  nearestOptionIndex,
+} from '../../src/db/queries/settings';
+
+function formatTime(ms: number): string {
+  const seconds = Math.round(ms / 1_000);
+  if (seconds < 60) {
+    return `${seconds} s`;
+  }
+  return `${Math.round(seconds / 60)} min`;
+}
+
+function formatDistance(meters: number): string {
+  return `${meters} m`;
+}
 
 export default function SettingsScreen() {
   const { settings, updateSettings, isLoaded } = useSettings();
-  const [timeInterval, setTimeInterval] = useState(settings.timeInterval);
-  const [distanceInterval, setDistanceInterval] = useState(settings.distanceInterval);
+  // The sliders select an index in the list of options
+  const [timeIndex, setTimeIndex] = useState(() => nearestOptionIndex(TIME_INTERVAL_OPTIONS, settings.timeInterval));
+  const [distanceIndex, setDistanceIndex] = useState(() =>
+    nearestOptionIndex(DISTANCE_INTERVAL_OPTIONS, settings.distanceInterval)
+  );
 
   useEffect(() => {
     if (isLoaded) {
-      setTimeInterval(settings.timeInterval);
-      setDistanceInterval(settings.distanceInterval);
+      setTimeIndex(nearestOptionIndex(TIME_INTERVAL_OPTIONS, settings.timeInterval));
+      setDistanceIndex(nearestOptionIndex(DISTANCE_INTERVAL_OPTIONS, settings.distanceInterval));
     }
   }, [isLoaded, settings]);
 
-  const handleTimeChange = (value: number) => {
-    const rounded = Math.round(value / 10_000) * 10_000;
-    setTimeInterval(rounded);
-  };
-
   const handleTimeSlidingComplete = (value: number) => {
-    const rounded = Math.round(value / 10_000) * 10_000;
-    updateSettings({ ...settings, timeInterval: rounded });
-  };
-
-  const handleDistanceChange = (value: number) => {
-    const rounded = Math.round(value / 10) * 10;
-    setDistanceInterval(rounded);
+    updateSettings({ ...settings, timeInterval: TIME_INTERVAL_OPTIONS[Math.round(value)] });
   };
 
   const handleDistanceSlidingComplete = (value: number) => {
-    const rounded = Math.round(value / 10) * 10;
-    updateSettings({ ...settings, distanceInterval: rounded });
-  };
-
-  const formatTime = (ms: number) => {
-    const rounded = Math.round(ms / 10_000) * 10_000;
-    const seconds = Math.round(rounded / 1_000);
-    if (seconds < 60) {
-      return `${seconds}s`;
-    }
-    const minutes = Math.round(seconds / 60);
-    if (seconds % 60 === 0) {
-      return `${minutes}min`;
-    }
-    return `${minutes}m ${seconds % 60}s`;
-  };
-
-  const formatDistance = (meters: number) => {
-    const rounded = Math.round(meters / 10) * 10;
-    return `${rounded}m`;
+    updateSettings({ ...settings, distanceInterval: DISTANCE_INTERVAL_OPTIONS[Math.round(value)] });
   };
 
   if (!isLoaded) {
@@ -73,65 +63,67 @@ export default function SettingsScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Background Tracking</Text>
             <Text style={styles.sectionDescription}>
-              Configure how often location updates are recorded during background tracking.
+              Set how often the app saves your location during a recording.
             </Text>
           </View>
 
           <View style={styles.settingCard}>
             <View style={styles.settingHeader}>
               <Text style={styles.settingLabel}>Time Interval</Text>
-              <Text style={styles.settingValue}>{formatTime(timeInterval)}</Text>
+              <Text style={styles.settingValue}>{formatTime(TIME_INTERVAL_OPTIONS[timeIndex])}</Text>
             </View>
             <Text style={styles.settingDescription}>
-              Minimum time between location updates
+              Save a point at least this often, also when you stay at one place
             </Text>
             <Slider
               style={styles.slider}
-              minimumValue={10_000}
-              maximumValue={300_000}
-              step={10_000}
-              value={timeInterval}
-              onValueChange={handleTimeChange}
+              minimumValue={0}
+              maximumValue={TIME_INTERVAL_OPTIONS.length - 1}
+              step={1}
+              value={timeIndex}
+              onValueChange={(value) => setTimeIndex(Math.round(value))}
               onSlidingComplete={handleTimeSlidingComplete}
               minimumTrackTintColor="#4285F4"
               maximumTrackTintColor="#E0E0E0"
               thumbTintColor="#4285F4"
             />
             <View style={styles.sliderLabels}>
-              <Text style={styles.sliderLabel}>10s</Text>
-              <Text style={styles.sliderLabel}>5min</Text>
+              <Text style={styles.sliderLabel}>{formatTime(TIME_INTERVAL_OPTIONS[0])}</Text>
+              <Text style={styles.sliderLabel}>{formatTime(TIME_INTERVAL_OPTIONS[TIME_INTERVAL_OPTIONS.length - 1])}</Text>
             </View>
           </View>
 
           <View style={styles.settingCard}>
             <View style={styles.settingHeader}>
               <Text style={styles.settingLabel}>Distance Interval</Text>
-              <Text style={styles.settingValue}>{formatDistance(distanceInterval)}</Text>
+              <Text style={styles.settingValue}>{formatDistance(DISTANCE_INTERVAL_OPTIONS[distanceIndex])}</Text>
             </View>
             <Text style={styles.settingDescription}>
-              Minimum distance traveled before recording a new location
+              Save a point each time you move this distance
             </Text>
             <Slider
               style={styles.slider}
-              minimumValue={10}
-              maximumValue={500}
-              step={10}
-              value={distanceInterval}
-              onValueChange={handleDistanceChange}
+              minimumValue={0}
+              maximumValue={DISTANCE_INTERVAL_OPTIONS.length - 1}
+              step={1}
+              value={distanceIndex}
+              onValueChange={(value) => setDistanceIndex(Math.round(value))}
               onSlidingComplete={handleDistanceSlidingComplete}
               minimumTrackTintColor="#4285F4"
               maximumTrackTintColor="#E0E0E0"
               thumbTintColor="#4285F4"
             />
             <View style={styles.sliderLabels}>
-              <Text style={styles.sliderLabel}>10m</Text>
-              <Text style={styles.sliderLabel}>500m</Text>
+              <Text style={styles.sliderLabel}>{formatDistance(DISTANCE_INTERVAL_OPTIONS[0])}</Text>
+              <Text style={styles.sliderLabel}>
+                {formatDistance(DISTANCE_INTERVAL_OPTIONS[DISTANCE_INTERVAL_OPTIONS.length - 1])}
+              </Text>
             </View>
           </View>
 
           <View style={styles.noteCard}>
             <Text style={styles.noteText}>
-              Changes will apply to new tracking sessions. Lower values provide more accurate tracking but may increase battery usage.
+              Changes apply at once, also to a recording that runs. Lower values give a more detailed map and a bigger database. During a recording, the app uses GPS, which uses more battery.
             </Text>
           </View>
         </View>

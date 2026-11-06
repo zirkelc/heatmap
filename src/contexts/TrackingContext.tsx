@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { AppState } from 'react-native';
 import { useDatabase } from './DatabaseContext';
-import { useSettings } from './SettingsContext';
 import {
   ensureLocationPermission,
   startTracking as startTrackingService,
@@ -42,7 +41,6 @@ const TrackingContext = createContext<TrackingContextValue | null>(null);
 
 export function TrackingProvider({ children }: { children: ReactNode }) {
   const db = useDatabase();
-  const { settings } = useSettings();
   const [isTracking, setIsTracking] = useState(false);
 
   /** Use live queries for reactive data */
@@ -105,10 +103,7 @@ export function TrackingProvider({ children }: { children: ReactNode }) {
       newSeries = createSeries(db, name, city, country);
       setActiveSeries(db, newSeries.seriesId);
 
-      const started = await startTrackingService({
-        timeInterval: settings.timeInterval,
-        distanceInterval: settings.distanceInterval,
-      });
+      const started = await startTrackingService();
       if (!started) {
         // Do not keep an empty series for a recording that never started
         deleteSeries(db, newSeries.seriesId);
@@ -124,7 +119,7 @@ export function TrackingProvider({ children }: { children: ReactNode }) {
       }
       return 'failed';
     }
-  }, [db, settings]);
+  }, [db]);
 
   const continueSeries = useCallback(async (seriesId: number): Promise<StartResult> => {
     if (!(await ensureLocationPermission())) {
@@ -134,10 +129,7 @@ export function TrackingProvider({ children }: { children: ReactNode }) {
     try {
       setActiveSeries(db, seriesId);
 
-      const started = await startTrackingService({
-        timeInterval: settings.timeInterval,
-        distanceInterval: settings.distanceInterval,
-      });
+      const started = await startTrackingService();
       if (!started) {
         deactivateAllSeries(db);
         return 'failed';
@@ -150,7 +142,7 @@ export function TrackingProvider({ children }: { children: ReactNode }) {
       deactivateAllSeries(db);
       return 'failed';
     }
-  }, [db, settings]);
+  }, [db]);
 
   const stopCurrentTracking = useCallback(async (): Promise<void> => {
     try {

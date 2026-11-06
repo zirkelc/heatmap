@@ -73,27 +73,23 @@ export async function isTrackingActive(): Promise<boolean> {
   return await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
 }
 
-export interface TrackingOptions {
-  timeInterval: number;
-  distanceInterval: number;
-}
-
 /**
  * Start background location tracking. The caller must make sure that the
  * location permission is granted.
+ * iOS sends an update about every second, with GPS accuracy. The app selects the points to
+ * save from these updates with the tracking settings, so that it also saves points while
+ * the user stays at one place.
  */
-export async function startTracking(options: TrackingOptions): Promise<boolean> {
+export async function startTracking(): Promise<boolean> {
   if (await isTrackingActive()) {
     return true;
   }
 
   try {
     await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
-      accuracy: Location.Accuracy.Balanced,
-      timeInterval: options.timeInterval,
-      distanceInterval: options.distanceInterval,
-      deferredUpdatesInterval: options.timeInterval,
-      deferredUpdatesDistance: options.distanceInterval,
+      accuracy: Location.Accuracy.High,
+      // In the background, send the updates in batches to wake the app less often
+      deferredUpdatesInterval: 30_000,
       showsBackgroundLocationIndicator: true,
       foregroundService: {
         notificationTitle: 'Recording',

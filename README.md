@@ -65,6 +65,7 @@ Read the full [privacy policy](docs/privacy-policy.md).
 
 - 🗺️ See all your series on one map, or select one series.
 - 🔥 The heatmap goes from green to yellow to red, so the places where you stayed longest stand out.
+- 🚶 Points count less when you move fast. A street that you walked shows stronger than a street that you drove through.
 - 📊 Open a series to see its map, its number of points and its time range.
 - ✏️ Rename series. Select series to merge or delete them.
 

@@ -78,3 +78,13 @@ export function saveTrackingSettings(db: DB, trackingSettings: TrackingSettings)
   setSetting(db, 'timeInterval', String(trackingSettings.timeInterval));
   setSetting(db, 'distanceInterval', String(trackingSettings.distanceInterval));
 }
+
+/**
+ * Add one to a counter in the settings table and return the new value. A counter that is not
+ * set yet starts at 0.
+ */
+export function incrementCounter(db: DB, key: string): number {
+  const value = Number(getSetting(db, key) ?? 0) + 1;
+  setSetting(db, key, String(value));
+  return value;
+}

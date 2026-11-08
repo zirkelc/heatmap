@@ -9,6 +9,7 @@ import {
   getCurrentLocation,
 } from '../services/location/tracking';
 import { generateSeriesName } from '../services/location/geocoding';
+import { onRecordingStopped } from '../services/review';
 import {
   createSeries,
   deleteSeries,
@@ -147,12 +148,14 @@ export function TrackingProvider({ children }: { children: ReactNode }) {
   const stopCurrentTracking = useCallback(async (): Promise<void> => {
     try {
       await stopTrackingService();
+      const pointCount = activeSeries?.pointCount ?? 0;
       deactivateAllSeries(db);
       setIsTracking(false);
+      await onRecordingStopped(db, pointCount);
     } catch (error) {
       console.error('[TrackingContext] Failed to stop tracking:', error);
     }
-  }, [db]);
+  }, [db, activeSeries]);
 
   const value: TrackingContextValue = {
     isTracking,

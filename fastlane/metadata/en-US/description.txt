@@ -12,6 +12,7 @@ RECORD
 
 EXPLORE
 • See all your series on one map, or select one series.
+• Streets that you walked show stronger than streets that you drove through.
 • Open a series to see its map, its number of points and its time range.
 • Rename, merge and delete series.
 

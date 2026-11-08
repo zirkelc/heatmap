@@ -12,8 +12,35 @@ export interface RecordedLocation {
   longitude: number;
   altitude?: number | null;
   accuracy?: number | null;
+  /** Speed in meters per second. iOS gives a negative value when the speed is not known. */
+  speed?: number | null;
   /** Unix time in milliseconds */
   timestamp: number;
+}
+
+/** Up to this speed (in meters per second, about 9 km/h), a point has the full weight */
+export const FULL_WEIGHT_MAX_SPEED = 2.5;
+
+/** From this speed (in meters per second, about 36 km/h), a point has the minimum weight */
+export const MIN_WEIGHT_SPEED = 10;
+
+/** Weight of a point at driving speed */
+export const MIN_WEIGHT = 0.2;
+
+/**
+ * Weight of a point on the heatmap, from the speed. When you walk, you see the street. When you
+ * drive through it, you see less. So points at a higher speed count less. Between walking speed
+ * and driving speed, the weight goes down linearly. A point without a known speed has the full weight.
+ */
+export function weightForSpeed(speed: number | null | undefined): number {
+  if (speed == null || speed < 0 || speed <= FULL_WEIGHT_MAX_SPEED) {
+    return 1;
+  }
+  if (speed >= MIN_WEIGHT_SPEED) {
+    return MIN_WEIGHT;
+  }
+  const fraction = (speed - FULL_WEIGHT_MAX_SPEED) / (MIN_WEIGHT_SPEED - FULL_WEIGHT_MAX_SPEED);
+  return 1 - fraction * (1 - MIN_WEIGHT);
 }
 
 /**
@@ -117,7 +144,7 @@ export function recordLocations(
             altitude: loc.altitude ?? null,
             accuracy: loc.accuracy ?? null,
             timestamp: new Date(loc.timestamp).toISOString(),
-            weight: 1,
+            weight: weightForSpeed(loc.speed),
           }))
         )
         .run();

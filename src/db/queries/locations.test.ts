@@ -4,7 +4,15 @@ import { createTestDatabase } from '../testing';
 import type { DB } from '../types';
 import { locations } from '../schema';
 import { createSeries, getSeriesById, setActiveSeries } from './series';
-import { distanceMeters, filterAccurateLocations, recordLocations, samplePoints, MAX_ACCURACY_METERS } from './locations';
+import {
+  distanceMeters,
+  filterAccurateLocations,
+  recordLocations,
+  samplePoints,
+  weightForSpeed,
+  MAX_ACCURACY_METERS,
+  MIN_WEIGHT,
+} from './locations';
 
 const POINT = { latitude: 52.52, longitude: 13.405, altitude: 34, accuracy: 10, timestamp: 1_700_000_000_000 };
 
@@ -94,6 +102,41 @@ describe('samplePoints', () => {
   });
 });
 
+describe('weightForSpeed', () => {
+  test('should give the full weight at walking speed and when the speed is not known', () => {
+    // Arrange
+    const speeds = [0, 1.4, 2.5, -1, null, undefined];
+
+    // Act
+    const result = speeds.map(weightForSpeed);
+
+    // Assert
+    expect(result).toEqual([1, 1, 1, 1, 1, 1]);
+  });
+
+  test('should give the minimum weight at driving speed', () => {
+    // Arrange
+    const speeds = [10, 14, 30];
+
+    // Act
+    const result = speeds.map(weightForSpeed);
+
+    // Assert
+    expect(result).toEqual([MIN_WEIGHT, MIN_WEIGHT, MIN_WEIGHT]);
+  });
+
+  test('should decrease the weight linearly between walking and driving speed', () => {
+    // Arrange
+    const halfway = (2.5 + 10) / 2;
+
+    // Act
+    const result = weightForSpeed(halfway);
+
+    // Assert
+    expect(result).toBeCloseTo(0.6);
+  });
+});
+
 describe('recordLocations', () => {
   test('should save points to the active series and update its point count', () => {
     // Arrange
@@ -142,6 +185,19 @@ describe('recordLocations', () => {
     // Assert
     expect(result).toEqual({ seriesId: active.seriesId, saved: 1 });
     expect(getSeriesById(db, active.seriesId)?.pointCount).toBe(2);
+  });
+
+  test('should save the weight from the speed', () => {
+    // Arrange
+    const active = createSeries(db, 'Active');
+    setActiveSeries(db, active.seriesId);
+
+    // Act
+    recordLocations(db, [{ ...POINT, speed: 1 }, { ...POINT, speed: 20, timestamp: POINT.timestamp + 1_000 }], SAVE_ALL);
+
+    // Assert
+    const saved = db.select().from(locations).where(eq(locations.seriesId, active.seriesId)).all();
+    expect(saved.map((loc) => loc.weight)).toEqual([1, MIN_WEIGHT]);
   });
 
   test('should return null and save nothing when no series is active', () => {

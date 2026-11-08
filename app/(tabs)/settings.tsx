@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Application from 'expo-application';
 import Slider from '@react-native-community/slider';
 import { useSettings } from '../../src/contexts/SettingsContext';
 import {
@@ -8,6 +9,16 @@ import {
   TIME_INTERVAL_OPTIONS,
   nearestOptionIndex,
 } from '../../src/db/queries/settings';
+import { WRITE_REVIEW_URL } from '../../src/services/review';
+
+const TAB_BAR_HEIGHT = 49;
+
+const ABOUT_LINKS = [
+  { label: 'Rate Heatmap', url: WRITE_REVIEW_URL },
+  { label: 'Source Code on GitHub', url: 'https://github.com/zirkelc/heatmap' },
+  { label: 'Privacy Policy', url: 'https://github.com/zirkelc/heatmap/blob/main/docs/privacy-policy.md' },
+  { label: 'Support', url: 'https://github.com/zirkelc/heatmap/blob/main/docs/support.md' },
+];
 
 function formatTime(ms: number): string {
   const seconds = Math.round(ms / 1_000);
@@ -23,6 +34,7 @@ function formatDistance(meters: number): string {
 
 export default function SettingsScreen() {
   const { settings, updateSettings, isLoaded } = useSettings();
+  const insets = useSafeAreaInsets();
   // The sliders select an index in the list of options
   const [timeIndex, setTimeIndex] = useState(() => nearestOptionIndex(TIME_INTERVAL_OPTIONS, settings.timeInterval));
   const [distanceIndex, setDistanceIndex] = useState(() =>
@@ -54,12 +66,12 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={{ flex: 1 }} collapsable={false}>
+      <View style={styles.page} collapsable={false}>
         <View style={styles.header}>
           <Text style={styles.title}>Settings</Text>
         </View>
 
-        <View style={styles.content}>
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + TAB_BAR_HEIGHT + 16 }]}>
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Background Tracking</Text>
             <Text style={styles.sectionDescription}>
@@ -126,14 +138,40 @@ export default function SettingsScreen() {
               Changes apply at once, also to a recording that runs. Lower values give a more detailed map and a bigger database. During a recording, the app uses GPS, which uses more battery.
             </Text>
           </View>
-        </View>
+
+          <View style={[styles.section, styles.aboutSection]}>
+            <Text style={styles.sectionTitle}>About</Text>
+          </View>
+
+          <View style={styles.linkCard}>
+            {ABOUT_LINKS.map((link, index) => (
+              <TouchableOpacity
+                key={link.url}
+                style={[styles.linkRow, index > 0 && styles.linkRowBorder]}
+                onPress={() => Linking.openURL(link.url)}
+              >
+                <Text style={styles.linkText}>{link.label}</Text>
+                <Text style={styles.linkChevron}>›</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.versionText}>
+            Version {Application.nativeApplicationVersion} ({Application.nativeBuildVersion})
+          </Text>
+        </ScrollView>
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  // White, so that the area behind the status bar has the same color as the header
   container: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  page: {
     flex: 1,
     backgroundColor: '#F5F5F5',
   },
@@ -222,6 +260,44 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginTop: 8,
+  },
+  aboutSection: {
+    marginTop: 24,
+    marginBottom: 8,
+  },
+  linkCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  linkRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  linkRowBorder: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E0E0E0',
+  },
+  linkText: {
+    fontSize: 17,
+    color: '#4285F4',
+  },
+  linkChevron: {
+    fontSize: 22,
+    color: '#C7C7CC',
+  },
+  versionText: {
+    marginTop: 16,
+    fontSize: 13,
+    color: '#888888',
+    textAlign: 'center',
   },
   noteText: {
     fontSize: 14,

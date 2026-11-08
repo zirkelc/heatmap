@@ -37,6 +37,7 @@ TaskManager.defineTask<{ locations?: Array<Location.LocationObject> }>(
           longitude: location.coords.longitude,
           altitude: location.coords.altitude,
           accuracy: location.coords.accuracy,
+          speed: location.coords.speed,
           timestamp: location.timestamp,
         })),
         getTrackingSettings(db)

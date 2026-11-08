@@ -173,9 +173,6 @@ export default function MapScreen() {
         <HeatmapOverlay points={points} />
       </MapView>
 
-      {/* Keeps the status bar readable over the map */}
-      <View style={[styles.statusBarBackdrop, { height: insets.top }]} pointerEvents="none" />
-
       <View style={[styles.topOverlay, { top: insets.top + 8 }]} pointerEvents="box-none">
         <TouchableOpacity style={styles.filterChip} onPress={handleSeriesFilter}>
           <Text style={styles.filterText} numberOfLines={1}>
@@ -225,13 +222,6 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
-  },
-  statusBarBackdrop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
   },
   topOverlay: {
     position: 'absolute',

@@ -227,7 +227,7 @@ export default function HistoryScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={{ flex: 1 }} collapsable={false}>
+      <View style={styles.page} collapsable={false}>
       <View style={styles.header}>
         {selectionMode ? (
           <View style={styles.selectionHeader}>
@@ -290,7 +290,12 @@ export default function HistoryScreen() {
 }
 
 const styles = StyleSheet.create({
+  // White, so that the area behind the status bar has the same color as the header
   container: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  page: {
     flex: 1,
     backgroundColor: '#F5F5F5',
   },
